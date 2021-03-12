@@ -7,4 +7,18 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+eframe = "0.10.0"
+serde = { version = "1.0.124", features = ["derive"], optional = true }
 rand = "0.8.3"
+getrandom = { version = "0.2.2", features = ["js"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+http = ["eframe/http"] # Enable if you want to do http requests
+#persistence = ["eframe/persistence", "serde"] # Enable if you want to persist app state on shutdown
+
+[profile.release]
+opt-level = 2 # fast and small wasm

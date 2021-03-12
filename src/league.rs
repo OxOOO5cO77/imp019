@@ -4,7 +4,7 @@ use crate::schedule::Schedule;
 use crate::data::Data;
 
 pub struct League {
-    teams: Vec<Team>,
+    pub(crate) teams: Vec<Team>,
     schedule: Schedule,
 }
 
@@ -58,9 +58,6 @@ pub fn relegate_promote(leagues: &mut Vec<League>, count: usize) {
         for _ in 0..count {
             promoted.push(leagues[lower].teams.remove(0));
         }
-
-        println!("Promoted : {} {} {} {}", promoted[0].abbr, promoted[1].abbr, promoted[2].abbr, promoted[3].abbr);
-        println!("Relegated: {} {} {} {}", relegated[0].abbr, relegated[1].abbr, relegated[2].abbr, relegated[3].abbr);
 
         leagues[upper].teams.append(&mut promoted);
         for rel in relegated {

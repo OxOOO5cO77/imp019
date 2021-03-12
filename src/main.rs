@@ -1,8 +1,6 @@
-use rand::seq::SliceRandom;
+pub use app::Imp019App;
 
-use crate::data::Data;
-use crate::league::League;
-
+mod app;
 mod team;
 mod player;
 mod results;
@@ -10,28 +8,8 @@ mod league;
 mod data;
 mod schedule;
 
-
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
-    let mut data = Data::new();
-
-    let mut rng = rand::thread_rng();
-    data.loc.shuffle(&mut rng);
-    data.nick.shuffle(&mut rng);
-
-    let mut leagues = Vec::new();
-    leagues.push(League::new(&mut data, 28));
-    leagues.push(League::new(&mut data, 28));
-    leagues.push(League::new(&mut data, 28));
-
-    for _ in 0..5 {
-        for league in &mut leagues {
-            league.sim(&mut rng);
-        }
-
-        league::relegate_promote(&mut leagues, 4);
-
-        for league in &mut leagues {
-            league.reset();
-        }
-    }
+    let app = app::Imp019App::new();
+    eframe::run_native(Box::new(app));
 }

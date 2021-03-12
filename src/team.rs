@@ -18,14 +18,14 @@ impl Team {
         Team {
             abbr: loc.next().unwrap().into(),
             city: loc.next().unwrap().into(),
-            state: loc.next().unwrap().into(),
+            state: loc.next().unwrap().to_owned() + "-" + loc.next().unwrap(),
             nickname: data.pull_nick(),
             players: vec![],
             results: Results::new(),
         }
     }
 
-    fn name(&self) -> String {
+    pub(crate) fn name(&self) -> String {
         format!("{} {} ({})", self.city, self.nickname, self.state)
     }
 }
