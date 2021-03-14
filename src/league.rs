@@ -3,19 +3,20 @@ use crate::team::Team;
 use crate::schedule::Schedule;
 use crate::data::Data;
 
+
 pub struct League {
     pub(crate) teams: Vec<Team>,
     schedule: Schedule,
 }
 
 impl League {
-    pub fn new(data: &mut Data, team_count: usize) -> League {
+    pub fn new(data: &mut Data, team_count: usize, rng: &mut ThreadRng) -> League {
         let mut teams = Vec::<Team>::new();
         for _ in 0..team_count {
             teams.push(Team::new(data));
         }
 
-        let schedule = Schedule::new(team_count);
+        let schedule = Schedule::new(team_count,rng);
 
         League {
             teams,
@@ -29,9 +30,11 @@ impl League {
         }
     }
 
-    pub fn sim(&mut self, mut rng: &mut ThreadRng) {
-        for game in &mut self.schedule.games {
+    pub fn sim(&mut self, mut rng: &mut ThreadRng) -> bool {
+
+        if let Some(game) = self.schedule.games.iter_mut().find(|o| o.home.r == o.away.r ) {
             game.sim(&mut rng);
+
 
             if game.home.r > game.away.r {
                 self.teams[game.home.team].results.win += 1;
@@ -40,9 +43,13 @@ impl League {
                 self.teams[game.away.team].results.win += 1;
                 self.teams[game.home.team].results.lose += 1;
             }
+
+            return true;
         }
 
         self.teams.sort_by_key(|o| o.results.lose);
+
+        false
     }
 }
 

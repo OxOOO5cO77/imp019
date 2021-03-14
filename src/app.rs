@@ -1,19 +1,22 @@
 use eframe::{egui, epi};
-
-use crate::league::League;
-use crate::data::Data;
+use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
+
+use crate::data::Data;
+use crate::league::League;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct Imp019App {
+    rng: ThreadRng,
     pub leagues: Vec<League>,
-    pub(crate) disp_league: usize,
+    pub disp_league: usize,
 }
 
 impl Default for Imp019App {
     fn default() -> Self {
         Imp019App {
+            rng: rand::thread_rng(),
             leagues: Vec::new(),
             disp_league: 0,
         }
@@ -21,41 +24,46 @@ impl Default for Imp019App {
 }
 
 impl Imp019App {
-   pub fn new() -> Self {
-       let mut data = Data::new();
+    pub fn new() -> Self {
+        let mut data = Data::new();
 
-       let mut rng = rand::thread_rng();
-       data.loc.shuffle(&mut rng);
-       data.nick.shuffle(&mut rng);
+        let mut rng = rand::thread_rng();
+        data.loc.shuffle(&mut rng);
+        data.nick.shuffle(&mut rng);
 
-       let mut leagues = Vec::new();
-       leagues.push(League::new(&mut data, 28));
-       leagues.push(League::new(&mut data, 28));
-       leagues.push(League::new(&mut data, 28));
+        let mut leagues = Vec::new();
+        leagues.push(League::new(&mut data, 28, &mut rng));
+        leagues.push(League::new(&mut data, 28, &mut rng));
+        leagues.push(League::new(&mut data, 28, &mut rng));
 
-       //for _ in 0..5 {
-       for league in &mut leagues {
-           league.sim(&mut rng);
-       }
+        // league::relegate_promote(&mut leagues, 4);
+        //
+        // for league in &mut leagues {
+        //     league.reset();
+        // }
+        //}
 
-       // league::relegate_promote(&mut leagues, 4);
-       //
-       // for league in &mut leagues {
-       //     league.reset();
-       // }
-       //}
+        Imp019App {
+            rng,
+            leagues,
+            disp_league: 0,
+        }
+    }
 
-       Imp019App {
-           leagues,
-           disp_league: 0
-       }
-   }
+    pub fn update(&mut self) {
+        for league in &mut self.leagues {
+            league.sim(&mut self.rng);
+        }
+    }
 }
 
 impl epi::App for Imp019App {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+
+        self.update();
+
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -64,7 +72,7 @@ impl epi::App for Imp019App {
         egui::SidePanel::left("side_panel", 200.0).show(ctx, |ui| {
             ui.heading("Side Panel");
             for cnt in 0..self.leagues.len() {
-                if ui.button(format!("League {}", cnt+1)).clicked() {
+                if ui.button(format!("League {}", cnt + 1)).clicked() {
                     self.disp_league = cnt;
                 }
             }
@@ -100,6 +108,8 @@ impl epi::App for Imp019App {
                 }
             });
         });
+
+        ctx.request_repaint();
     }
 
     /// Called by the framework to load old app state (if any).

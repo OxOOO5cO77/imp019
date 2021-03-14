@@ -1,4 +1,5 @@
 use rand::{Rng, rngs::ThreadRng};
+use rand::seq::SliceRandom;
 
 pub struct Scoreboard {
     pub team: usize,
@@ -50,17 +51,45 @@ pub struct Schedule {
 }
 
 impl Schedule {
-    pub fn new(teams: usize) -> Self {
-        let mut games = Vec::new();
+    pub fn new(teams: usize, rng: &mut ThreadRng) -> Self {
+        let mut raw_matchups = Vec::new();
+
         for home in 0..teams {
             for away in 0..teams {
                 if home != away {
-                    games.push(Game::new(home, away));
-                    games.push(Game::new(home, away));
-                    games.push(Game::new(home, away));
+                    raw_matchups.push(Game::new(home, away));
                 }
             }
         }
+
+        raw_matchups.shuffle(rng);
+
+        let mut matchups = Vec::new();
+        while !raw_matchups.is_empty() {
+            let mut teams_to_pick = (0..teams).collect::<Vec<_>>();
+            teams_to_pick.shuffle(rng);
+
+            while !teams_to_pick.is_empty() {
+                if let Some(team) = teams_to_pick.pop() {
+                    if let Some(idx) = raw_matchups.iter().position(|x: &Game| x.home.team == team).or_else(|| raw_matchups.iter().position(|y| y.away.team == team)) {
+                        let game = raw_matchups.swap_remove(idx);
+                        let other_team = if game.home.team == team { game.away.team } else { game.home.team };
+                        matchups.push(game);
+                        if let Some(other_pos) = teams_to_pick.iter().position(|&o| o == other_team) {
+                            teams_to_pick.remove(other_pos);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut games = Vec::new();
+        for game in &matchups {
+            games.push(Game::new(game.home.team, game.away.team));
+            games.push(Game::new(game.home.team, game.away.team));
+            games.push(Game::new(game.home.team, game.away.team));
+        }
+
         Schedule {
             games
         }
