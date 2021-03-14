@@ -1,8 +1,8 @@
 use std::fs;
 
 pub struct Data {
-    pub loc: Vec<String>,
-    pub nick: Vec<String>,
+    pub(crate) loc: Vec<String>,
+    pub(crate) nick: Vec<String>,
 }
 
 impl Default for Data {
@@ -15,7 +15,7 @@ impl Default for Data {
 }
 
 impl Data {
-    pub fn new() -> Data {
+    pub(crate) fn new() -> Data {
         let loc = if let Ok(loc_data) = fs::read_to_string("data/loc.txt") {
             loc_data.lines().map(|o| o.to_string()).collect()
         } else { Vec::new() };
@@ -38,10 +38,10 @@ impl Data {
         }
     }
 
-    pub fn pull_loc(&mut self) -> String {
+    pub(crate) fn pull_loc(&mut self) -> String {
         Data::pull(&mut self.loc)
     }
-    pub fn pull_nick(&mut self) -> String {
+    pub(crate) fn pull_nick(&mut self) -> String {
         Data::pull(&mut self.nick)
     }
 }

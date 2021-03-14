@@ -1,22 +1,22 @@
 use rand::rngs::ThreadRng;
-use crate::team::Team;
-use crate::schedule::Schedule;
-use crate::data::Data;
 
+use crate::data::Data;
+use crate::schedule::Schedule;
+use crate::team::Team;
 
 pub struct League {
     pub(crate) teams: Vec<Team>,
-    schedule: Schedule,
+    pub(crate) schedule: Schedule,
 }
 
 impl League {
-    pub fn new(data: &mut Data, team_count: usize, rng: &mut ThreadRng) -> League {
+    pub(crate) fn new(data: &mut Data, team_count: usize, rng: &mut ThreadRng) -> League {
         let mut teams = Vec::<Team>::new();
         for _ in 0..team_count {
             teams.push(Team::new(data));
         }
 
-        let schedule = Schedule::new(team_count,rng);
+        let schedule = Schedule::new(team_count, rng);
 
         League {
             teams,
@@ -24,26 +24,28 @@ impl League {
         }
     }
 
-    pub fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         for team in &mut self.teams {
             team.results.reset();
         }
     }
 
-    pub fn sim(&mut self, mut rng: &mut ThreadRng) -> bool {
+    pub(crate) fn sim(&mut self, mut rng: &mut ThreadRng) -> bool {
+        if let Some(first_idx) = self.schedule.games.iter().position(|o| o.home.r == o.away.r) {
+            let teams = self.teams.len();
+            for idx in first_idx..(first_idx + (teams / 2)) {
+                if let Some(game) = self.schedule.games.get_mut(idx) {
+                    game.sim(&mut rng);
 
-        if let Some(game) = self.schedule.games.iter_mut().find(|o| o.home.r == o.away.r ) {
-            game.sim(&mut rng);
-
-
-            if game.home.r > game.away.r {
-                self.teams[game.home.team].results.win += 1;
-                self.teams[game.away.team].results.lose += 1;
-            } else {
-                self.teams[game.away.team].results.win += 1;
-                self.teams[game.home.team].results.lose += 1;
+                    if game.home.r > game.away.r {
+                        self.teams[game.home.team].results.win += 1;
+                        self.teams[game.away.team].results.lose += 1;
+                    } else {
+                        self.teams[game.away.team].results.win += 1;
+                        self.teams[game.home.team].results.lose += 1;
+                    }
+                }
             }
-
             return true;
         }
 
@@ -53,7 +55,7 @@ impl League {
     }
 }
 
-pub fn relegate_promote(leagues: &mut Vec<League>, count: usize) {
+pub(crate) fn relegate_promote(leagues: &mut Vec<League>, count: usize) {
     for league_idx in 0..(leagues.len() - 1) {
         let upper = league_idx;
         let lower = league_idx + 1;

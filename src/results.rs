@@ -1,17 +1,17 @@
 pub struct Results {
-    pub win: u8,
-    pub lose: u8,
+    pub(crate) win: u32,
+    pub(crate) lose: u32,
 }
 
 impl Results {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Results {
             win: 0,
             lose: 0,
         }
     }
 
-    pub fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.win = 0;
         self.lose = 0;
     }

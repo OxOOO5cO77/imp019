@@ -2,17 +2,17 @@ use crate::player::Player;
 use crate::results::Results;
 use crate::data::Data;
 
-pub struct Team {
-    pub abbr: String,
+pub(crate) struct Team {
+    pub(crate) abbr: String,
     city: String,
     state: String,
     nickname: String,
     players: Vec<Player>,
-    pub results: Results,
+    pub(crate) results: Results,
 }
 
 impl Team {
-    pub fn new(data: &mut Data) -> Self {
+    pub(crate) fn new(data: &mut Data) -> Self {
         let loc = data.pull_loc();
         let mut loc = loc.split(',');
         Team {
