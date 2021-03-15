@@ -38,3 +38,21 @@ impl Data {
         Data::pull(&mut self.nick)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_abbr() {
+        let data = Data::new();
+
+        let mut abbr = data.loc.iter().map(|o| o.split(',').next().unwrap()).collect::<Vec<_>>();
+
+        abbr.sort_unstable();
+
+        for idx in 1..abbr.len() {
+            assert_ne!(abbr[idx - 1], abbr[idx]);
+        }
+    }
+}
