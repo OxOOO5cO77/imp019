@@ -175,8 +175,6 @@ impl epi::App for Imp019App {
                 }
             }
         });
-
-        ctx.request_repaint();
     }
 
     /// Called by the framework to load old app state (if any).
