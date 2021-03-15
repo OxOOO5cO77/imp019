@@ -1,4 +1,4 @@
-use crate::player::Player;
+//use crate::player::Player;
 use crate::results::Results;
 use crate::data::Data;
 
@@ -7,7 +7,7 @@ pub(crate) struct Team {
     city: String,
     state: String,
     nickname: String,
-    players: Vec<Player>,
+    //players: Vec<Player>,
     pub(crate) results: Results,
 }
 
@@ -20,7 +20,7 @@ impl Team {
             city: loc.next().unwrap().into(),
             state: loc.next().unwrap().to_owned() + "-" + loc.next().unwrap(),
             nickname: data.pull_nick(),
-            players: vec![],
+            //players: vec![],
             results: Results::new(),
         }
     }

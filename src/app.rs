@@ -3,7 +3,7 @@ use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
 use crate::data::Data;
-use crate::league::League;
+use crate::league::{League, relegate_promote};
 use crate::team::Team;
 
 enum Mode {
@@ -58,10 +58,12 @@ impl Imp019App {
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self) -> bool {
+        let mut result = false;
         for league in &mut self.leagues {
-            league.sim(&mut self.rng);
+            result = league.sim(&mut self.rng) || result;
         }
+        result
     }
 }
 
@@ -74,6 +76,24 @@ impl epi::App for Imp019App {
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
+
+        egui::TopPanel::top("top_panel").show(ctx, |ui| {
+            // The top panel is often a good place for a menu bar:
+            egui::menu::bar(ui, |ui| {
+                egui::menu::menu(ui, "File", |ui| {
+                    if ui.button("Quit").clicked() {
+                        frame.quit();
+                    }
+                });
+                ui.separator();
+                if ui.button("Sim").clicked() {
+                    let result = self.update();
+                    if !result {
+                        relegate_promote(&mut self.leagues, 4, &mut self.rng)
+                    }
+                };
+            });
+        });
 
         egui::SidePanel::left("side_panel", 200.0).show(ctx, |ui| {
             ui.heading("Leagues");
@@ -91,21 +111,6 @@ impl epi::App for Imp019App {
                 });
             }
             ui.separator();
-        });
-
-        egui::TopPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                egui::menu::menu(ui, "File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        frame.quit();
-                    }
-                });
-                ui.separator();
-                if ui.button("Sim").clicked() {
-                    self.update();
-                };
-            });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {

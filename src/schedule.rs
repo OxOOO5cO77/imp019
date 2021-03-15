@@ -1,20 +1,19 @@
 use rand::{Rng, rngs::ThreadRng};
 use rand::seq::SliceRandom;
 
+#[derive(Default)]
 pub(crate) struct Scoreboard {
     pub(crate) team: usize,
     pub(crate) r: u8,
-    h: u8,
-    e: u8,
+//    h: u8,
+//    e: u8,
 }
 
 impl Scoreboard {
     fn new(team: usize) -> Self {
         Scoreboard {
             team,
-            r: 0,
-            h: 0,
-            e: 0,
+            ..Default::default()
         }
     }
 }

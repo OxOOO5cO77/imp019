@@ -24,10 +24,11 @@ impl League {
         }
     }
 
-    pub(crate) fn reset(&mut self) {
+    pub(crate) fn reset_results(&mut self, rng: &mut ThreadRng) {
         for team in &mut self.teams {
             team.results.reset();
         }
+        self.schedule = Schedule::new(self.teams.len(),rng)
     }
 
     pub(crate) fn sim(&mut self, mut rng: &mut ThreadRng) -> bool {
@@ -55,7 +56,7 @@ impl League {
     }
 }
 
-pub(crate) fn relegate_promote(leagues: &mut Vec<League>, count: usize) {
+pub(crate) fn relegate_promote(leagues: &mut Vec<League>, count: usize, rng: &mut ThreadRng) {
     for league_idx in 0..(leagues.len() - 1) {
         let upper = league_idx;
         let lower = league_idx + 1;
@@ -72,5 +73,9 @@ pub(crate) fn relegate_promote(leagues: &mut Vec<League>, count: usize) {
         for rel in relegated {
             leagues[lower].teams.insert(0, rel);
         }
+    }
+
+    for league in leagues {
+        league.reset_results(rng);
     }
 }
