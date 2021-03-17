@@ -41,13 +41,13 @@ impl Data {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_abbr() {
-        let data = Data::new();
-
-        let mut abbr = data.loc.iter().map(|o| o.split(',').next().unwrap()).collect::<Vec<_>>();
+        let mut abbr = include_str!("../data/loc.txt")
+            .lines()
+            .map(|o| o.split(',').next())
+            .filter_map(|o| o)
+            .collect::<Vec<_>>();
 
         abbr.sort_unstable();
 
