@@ -1,12 +1,12 @@
 use eframe::{egui, epi};
 use eframe::egui::Button;
+use ordinal::Ordinal;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
 use crate::team::Team;
-use ordinal::Ordinal;
 
 #[derive(Copy, Clone)]
 enum Mode {
@@ -51,13 +51,6 @@ impl Imp019App {
         leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
         leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
         leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
-
-        // league::relegate_promote(&mut leagues, 4);
-        //
-        // for league in &mut leagues {
-        //     league.reset();
-        // }
-        //}
 
         Imp019App {
             rng,
@@ -214,23 +207,43 @@ impl epi::App for Imp019App {
                     ui.label(format!("Wins: {}", team.history.wins));
                     ui.label(format!("Losses: {}", team.history.losses));
 
-                    egui::Grid::new("standings").striped(true).show(ui, |ui| {
-                        ui.label("Year");
-                        ui.label("League");
-                        ui.label("Rank");
-                        ui.label("W");
-                        ui.label("L");
-                        ui.end_row();
-
-                        for result in &team.history.results {
-                            ui.label(format!("{}", result.year));
-                            ui.label(format!("League {}", result.league));
-                            ui.label(format!("{}", Ordinal(result.rank)));
-                            ui.label(format!("{}", result.win));
-                            ui.label(format!("{}", result.lose));
+                    if !team.history.results.is_empty() {
+                        ui.heading("History");
+                        egui::Grid::new("history").striped(true).show(ui, |ui| {
+                            ui.label("Year");
+                            ui.label("League");
+                            ui.label("Rank");
+                            ui.label("W");
+                            ui.label("L");
                             ui.end_row();
-                        }
-                    });
+
+                            ui.end_row();
+
+                            for result in &team.history.results {
+                                ui.label(format!("{}", result.year));
+                                ui.label(format!("League {}", result.league));
+                                ui.label(format!("{}", Ordinal(result.rank)));
+                                ui.label(format!("{}", result.win));
+                                ui.label(format!("{}", result.lose));
+                                ui.end_row();
+                            }
+                        });
+                    }
+
+
+                    if !team.players.is_empty() {
+                        ui.heading("Players");
+                        egui::Grid::new("players").striped(true).show(ui, |ui| {
+                            ui.label("Name");
+                            ui.end_row();
+
+                            for player in &team.players {
+                                ui.label(&player.fullname());
+                                ui.end_row();
+                            }
+                        });
+                    }
+
 
                     mode
                 }

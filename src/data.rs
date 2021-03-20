@@ -1,6 +1,8 @@
 pub struct Data {
     pub(crate) loc: Vec<String>,
     pub(crate) nick: Vec<String>,
+    pub(crate) names_first: Vec<(String, u32)>,
+    pub(crate) names_last: Vec<(String, u32)>,
 }
 
 impl Default for Data {
@@ -8,18 +10,32 @@ impl Default for Data {
         Data {
             loc: Vec::new(),
             nick: Vec::new(),
+            names_first: Vec::new(),
+            names_last: Vec::new(),
         }
     }
+}
+
+fn weighted(in_str: &str) -> Option<(String, u32)> {
+    let mut line = in_str.split(',');
+    let value = line.next();
+    let weight = line.next().and_then(|o| o.parse::<u32>().ok());
+
+    Some((value?.to_owned(), weight?))
 }
 
 impl Data {
     pub(crate) fn new() -> Data {
         let loc = include_str!("../data/loc.txt").lines().map(|o| o.to_string()).collect();
         let nick = include_str!("../data/nick.txt").lines().map(|o| o.to_string()).collect();
+        let names_first = include_str!("../data/names_first.txt").lines().map(weighted).filter_map(|o| o).collect();
+        let names_last = include_str!("../data/names_last.txt").lines().map(weighted).filter_map(|o| o).collect();
 
         Data {
             loc,
             nick,
+            names_first,
+            names_last,
         }
     }
 

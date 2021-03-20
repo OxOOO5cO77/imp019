@@ -15,7 +15,7 @@ impl League {
     pub(crate) fn new(data: &mut Data, team_count: usize, year: u32, id: &mut usize, rng: &mut ThreadRng) -> League {
         let mut teams = Vec::<Team>::new();
         for _ in 0..team_count {
-            teams.push(Team::new(data, year, *id));
+            teams.push(Team::new(data, year, *id, rng));
             *id += 1;
         }
 
