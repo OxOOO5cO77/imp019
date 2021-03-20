@@ -1,3 +1,5 @@
+use std::cmp::{max, min};
+
 use rand::rngs::ThreadRng;
 
 use crate::data::Data;
@@ -10,10 +12,11 @@ pub struct League {
 }
 
 impl League {
-    pub(crate) fn new(data: &mut Data, team_count: usize, rng: &mut ThreadRng) -> League {
+    pub(crate) fn new(data: &mut Data, team_count: usize, year: u32, id: &mut usize, rng: &mut ThreadRng) -> League {
         let mut teams = Vec::<Team>::new();
         for _ in 0..team_count {
-            teams.push(Team::new(data));
+            teams.push(Team::new(data, year, *id));
+            *id += 1;
         }
 
         let schedule = Schedule::new(team_count, rng);
@@ -24,11 +27,11 @@ impl League {
         }
     }
 
-    pub(crate) fn reset_results(&mut self, rng: &mut ThreadRng) {
+    pub(crate) fn reset_schedule(&mut self, rng: &mut ThreadRng) {
         for team in &mut self.teams {
             team.results.reset();
         }
-        self.schedule = Schedule::new(self.teams.len(),rng)
+        self.schedule = Schedule::new(self.teams.len(), rng)
     }
 
     pub(crate) fn sim(&mut self, mut rng: &mut ThreadRng) -> bool {
@@ -56,7 +59,20 @@ impl League {
     }
 }
 
-pub(crate) fn relegate_promote(leagues: &mut Vec<League>, count: usize, rng: &mut ThreadRng) {
+pub(crate) fn end_of_season(leagues: &mut Vec<League>, count: usize, year: u32, rng: &mut ThreadRng) {
+    // record history
+    for (league_idx, league) in leagues.iter_mut().enumerate() {
+        for (team_idx, team) in league.teams.iter_mut().enumerate() {
+            team.history.add_results(year, league_idx, team_idx, team.results);
+            team.history.wins += team.results.win;
+            team.history.losses += team.results.lose;
+            let pos = Some(((league_idx + 1) * 100 + (team_idx + 1)) as u32);
+            team.history.best = if team.history.best.is_none() { pos } else { min(pos, team.history.best) };
+            team.history.worst = if team.history.worst.is_none() { pos } else { max(pos, team.history.worst) };
+        }
+    }
+
+    // relegate/promite
     for league_idx in 0..(leagues.len() - 1) {
         let upper = league_idx;
         let lower = league_idx + 1;
@@ -75,7 +91,8 @@ pub(crate) fn relegate_promote(leagues: &mut Vec<League>, count: usize, rng: &mu
         }
     }
 
+    // reset league
     for league in leagues {
-        league.reset_results(rng);
+        league.reset_schedule(rng);
     }
 }

@@ -1,14 +1,18 @@
 use eframe::{egui, epi};
+use eframe::egui::Button;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
 use crate::data::Data;
-use crate::league::{League, relegate_promote};
+use crate::league::{end_of_season, League};
 use crate::team::Team;
+use ordinal::Ordinal;
 
+#[derive(Copy, Clone)]
 enum Mode {
     Schedule,
     Standings,
+    Team(usize),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -16,6 +20,7 @@ enum Mode {
 pub struct Imp019App {
     rng: ThreadRng,
     pub leagues: Vec<League>,
+    year: u32,
     pub disp_league: usize,
     disp_mode: Mode,
 }
@@ -25,6 +30,7 @@ impl Default for Imp019App {
         Imp019App {
             rng: rand::thread_rng(),
             leagues: Vec::new(),
+            year: 2030,
             disp_league: 0,
             disp_mode: Mode::Schedule,
         }
@@ -39,10 +45,12 @@ impl Imp019App {
         data.loc.shuffle(&mut rng);
         data.nick.shuffle(&mut rng);
 
+        let year = 2030;
+        let mut id = 0;
         let mut leagues = Vec::new();
-        leagues.push(League::new(&mut data, 20, &mut rng));
-        leagues.push(League::new(&mut data, 20, &mut rng));
-        leagues.push(League::new(&mut data, 20, &mut rng));
+        leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
+        leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
+        leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
 
         // league::relegate_promote(&mut leagues, 4);
         //
@@ -54,6 +62,7 @@ impl Imp019App {
         Imp019App {
             rng,
             leagues,
+            year,
             ..Default::default()
         }
     }
@@ -64,6 +73,14 @@ impl Imp019App {
             result = league.sim(&mut self.rng) || result;
         }
         result
+    }
+}
+
+fn as_league(value: Option<u32>) -> String {
+    if let Some(pos) = value {
+        format!("{} in League {}", Ordinal(pos % 100), pos / 100)
+    } else {
+        "---".to_string()
     }
 }
 
@@ -89,7 +106,8 @@ impl epi::App for Imp019App {
                 if ui.button("Sim").clicked() {
                     let result = self.update();
                     if !result {
-                        relegate_promote(&mut self.leagues, 4, &mut self.rng)
+                        end_of_season(&mut self.leagues, 4, self.year, &mut self.rng);
+                        self.year += 1;
                     }
                 };
             });
@@ -115,7 +133,7 @@ impl epi::App for Imp019App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let league = &self.leagues[self.disp_league];
-            match self.disp_mode {
+            self.disp_mode = match &self.disp_mode {
                 Mode::Schedule => {
                     let total_games = league.schedule.games.len();
 
@@ -123,7 +141,7 @@ impl epi::App for Imp019App {
                     let teams = league.teams.len();
 
                     if cur_idx < total_games {
-                        ui.heading(format!("Today ({})",cur_idx/(teams/2)));
+                        ui.heading(format!("Today ({})", cur_idx / (teams / 2)));
                         for idx in cur_idx..(cur_idx + (teams / 2)) {
                             let game = &league.schedule.games[idx];
                             let home_team = &league.teams[game.home.team];
@@ -135,7 +153,7 @@ impl epi::App for Imp019App {
                     if cur_idx > 0 {
                         ui.heading("Yesterday");
                         let end = cur_idx as i32;
-                        let start = end - ((teams/2) as i32);
+                        let start = end - ((teams / 2) as i32);
                         for past_idx in start..end {
                             if past_idx >= 0 {
                                 let game = &league.schedule.games[past_idx as usize];
@@ -145,9 +163,10 @@ impl epi::App for Imp019App {
                             }
                         }
                     }
-
+                    Mode::Schedule
                 }
                 Mode::Standings => {
+                    let mut mode = Mode::Standings;
                     egui::Grid::new("standings").show(ui, |ui| {
                         ui.label("Rank");
                         ui.label("Abbr");
@@ -155,8 +174,8 @@ impl epi::App for Imp019App {
                         ui.label("Record");
                         ui.end_row();
 
-                        let mut cloned_teams = league.teams.iter().collect::<Vec<&Team>>();
-                        cloned_teams.sort_by_key(|o| {
+                        let teams = &mut league.teams.iter().collect::<Vec<&Team>>();
+                        teams.sort_by_key(|o| {
                             let denom = o.results.win + o.results.lose;
                             if denom > 0 {
                                 (o.results.win * 1000 / denom) + 1
@@ -164,19 +183,56 @@ impl epi::App for Imp019App {
                                 0
                             }
                         });
-                        cloned_teams.reverse();
+                        teams.reverse();
 
 
                         let mut rank = 1;
-                        for team in &cloned_teams {
+                        for team in teams.iter() {
                             ui.label(format!("{}", rank));
                             ui.label(team.abbr.as_str());
-                            ui.label(team.name());
+                            if ui.add(Button::new(team.name()).frame(false)).clicked() {
+                                mode = Mode::Team(team.id);
+                            }
                             ui.label(format!("{}-{}", team.results.win, team.results.lose));
                             ui.end_row();
                             rank += 1;
                         }
                     });
+                    mode
+                }
+                Mode::Team(id) => {
+                    let mut mode = Mode::Team(*id);
+                    if ui.button("Close").clicked() {
+                        mode = Mode::Standings;
+                    }
+
+                    let team = &mut league.teams.iter().find(|o| o.id == *id).unwrap();
+                    ui.label(team.name());
+                    ui.label(format!("Founded: {}", team.history.founded));
+                    ui.label(format!("Best: {}", as_league(team.history.best)));
+                    ui.label(format!("Worst: {}", as_league(team.history.worst)));
+                    ui.label(format!("Wins: {}", team.history.wins));
+                    ui.label(format!("Losses: {}", team.history.losses));
+
+                    egui::Grid::new("standings").striped(true).show(ui, |ui| {
+                        ui.label("Year");
+                        ui.label("League");
+                        ui.label("Rank");
+                        ui.label("W");
+                        ui.label("L");
+                        ui.end_row();
+
+                        for result in &team.history.results {
+                            ui.label(format!("{}", result.year));
+                            ui.label(format!("League {}", result.league));
+                            ui.label(format!("{}", Ordinal(result.rank)));
+                            ui.label(format!("{}", result.win));
+                            ui.label(format!("{}", result.lose));
+                            ui.end_row();
+                        }
+                    });
+
+                    mode
                 }
             }
         });
