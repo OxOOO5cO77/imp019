@@ -6,13 +6,15 @@ use rand::seq::SliceRandom;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
+use crate::player::PAResult;
 use crate::team::Team;
 
 #[derive(Copy, Clone)]
 enum Mode {
     Schedule,
     Standings,
-    Team(usize),
+    Team(u32),
+    Player(u32,u32),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -48,9 +50,9 @@ impl Imp019App {
         let year = 2030;
         let mut id = 0;
         let mut leagues = Vec::new();
-        leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
-        leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
-        leagues.push(League::new(&mut data, 20, year, &mut id, &mut rng));
+        leagues.push(League::new(1, &mut data, 20, year, &mut id, &mut rng));
+        leagues.push(League::new(2, &mut data, 20, year, &mut id, &mut rng));
+        leagues.push(League::new(3, &mut data, 20, year, &mut id, &mut rng));
 
         Imp019App {
             rng,
@@ -103,6 +105,9 @@ impl epi::App for Imp019App {
                         self.year += 1;
                     }
                 };
+                if ui.button("Sim All").clicked() {
+                    while self.update() {}
+                }
             });
         });
 
@@ -207,43 +212,152 @@ impl epi::App for Imp019App {
                     ui.label(format!("Wins: {}", team.history.wins));
                     ui.label(format!("Losses: {}", team.history.losses));
 
-                    if !team.history.results.is_empty() {
-                        ui.heading("History");
-                        egui::Grid::new("history").striped(true).show(ui, |ui| {
-                            ui.label("Year");
-                            ui.label("League");
-                            ui.label("Rank");
-                            ui.label("W");
-                            ui.label("L");
-                            ui.end_row();
+                    ui.horizontal(|ui| {
+                        if !team.history.results.is_empty() {
+                            ui.vertical(|ui| {
+                                ui.heading("History");
+                                egui::Grid::new("history").striped(true).show(ui, |ui| {
+                                    ui.label("Year");
+                                    ui.label("League");
+                                    ui.label("Rank");
+                                    ui.label("W");
+                                    ui.label("L");
+                                    ui.end_row();
 
-                            ui.end_row();
+                                    ui.end_row();
 
-                            for result in &team.history.results {
-                                ui.label(format!("{}", result.year));
-                                ui.label(format!("League {}", result.league));
-                                ui.label(format!("{}", Ordinal(result.rank)));
-                                ui.label(format!("{}", result.win));
-                                ui.label(format!("{}", result.lose));
-                                ui.end_row();
-                            }
-                        });
+                                    for result in &team.history.results {
+                                        ui.label(format!("{}", result.year));
+                                        ui.label(format!("League {}", result.league));
+                                        ui.label(format!("{}", Ordinal(result.rank)));
+                                        ui.label(format!("{}", result.win));
+                                        ui.label(format!("{}", result.lose));
+                                        ui.end_row();
+                                    }
+                                });
+                            });
+                        }
+
+
+                        if !team.players.is_empty() {
+                            ui.vertical(|ui| {
+                                ui.heading("Players");
+                                egui::Grid::new("players").striped(true).show(ui, |ui| {
+                                    ui.label("Name");
+                                    ui.label("PA");
+                                    ui.label("AB");
+                                    ui.label("H");
+                                    ui.label("2B");
+                                    ui.label("3B");
+                                    ui.label("HR");
+                                    ui.label("BB");
+                                    ui.label("HBP");
+                                    ui.label("AVG");
+                                    ui.label("OBP");
+                                    ui.label("SLG");
+                                    ui.end_row();
+
+
+                                    for (player_idx, player) in team.players.iter().enumerate() {
+                                        let h1b = player.stats.iter().filter(|o| **o == PAResult::H1b).count();
+                                        let h2b = player.stats.iter().filter(|o| **o == PAResult::H2b).count();
+                                        let h3b = player.stats.iter().filter(|o| **o == PAResult::H3b).count();
+                                        let hr = player.stats.iter().filter(|o| **o == PAResult::HR).count();
+                                        let bb = player.stats.iter().filter(|o| **o == PAResult::BB).count();
+                                        let hbp = player.stats.iter().filter(|o| **o == PAResult::HBP).count();
+                                        let o = player.stats.iter().filter(|o| **o == PAResult::O).count();
+
+                                        let h = h1b + h2b + h3b + hr;
+                                        let ab = h + o;
+                                        let pa = ab + bb + hbp;
+                                        let avg = if ab > 0 { h * 1000 / ab } else { 0 };
+                                        let obp = if pa > 0 { ((h + bb + hbp) * 1000) / pa } else { 0 };
+                                        let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
+
+                                        if ui.add( Button::new(&player.fullname()).frame(false)).clicked() {
+                                            mode = Mode::Player(*id,player_idx as u32);
+                                        }
+                                        ui.label(format!("{}", pa));
+                                        ui.label(format!("{}", ab));
+                                        ui.label(format!("{}", h));
+                                        ui.label(format!("{}", h2b));
+                                        ui.label(format!("{}", h3b));
+                                        ui.label(format!("{}", hr));
+                                        ui.label(format!("{}", bb));
+                                        ui.label(format!("{}", hbp));
+                                        ui.label(format!("{}.{:03}", avg / 1000, avg % 1000));
+                                        ui.label(format!("{}.{:03}", obp / 1000, obp % 1000));
+                                        ui.label(format!("{}.{:03}", slg / 1000, slg % 1000));
+                                        ui.end_row();
+                                    }
+                                });
+                            });
+                        }
+                    });
+
+
+                    mode
+                }
+                Mode::Player(team_id,id) => {
+                    let mut mode = Mode::Player(*team_id,*id);
+                    if ui.button("Close").clicked() {
+                        mode = Mode::Team(*team_id);
                     }
 
+                    let team = &mut league.teams.iter().find(|o| o.id == *team_id).unwrap();
+                    let player = &team.players[*id as usize];
 
-                    if !team.players.is_empty() {
-                        ui.heading("Players");
-                        egui::Grid::new("players").striped(true).show(ui, |ui| {
-                            ui.label("Name");
+                    egui::Grid::new("history").striped(true).show(ui, |ui| {
+                        ui.label("Year");
+                        ui.label("League");
+                        ui.label("Team");
+                        ui.label("PA");
+                        ui.label("AB");
+                        ui.label("H");
+                        ui.label("2B");
+                        ui.label("3B");
+                        ui.label("HR");
+                        ui.label("BB");
+                        ui.label("HBP");
+                        ui.label("AVG");
+                        ui.label("OBP");
+                        ui.label("SLG");
+                        ui.end_row();
+
+
+                        for history in &player.historical {
+                            let h1b = history.stats.get(&PAResult::H1b).or(Some(&0)).unwrap();
+                            let h2b = history.stats.get(&PAResult::H2b).or(Some(&0)).unwrap();
+                            let h3b = history.stats.get(&PAResult::H3b).or(Some(&0)).unwrap();
+                            let hr = history.stats.get(&PAResult::HR).or(Some(&0)).unwrap();
+                            let bb = history.stats.get(&PAResult::BB).or(Some(&0)).unwrap();
+                            let hbp = history.stats.get(&PAResult::HBP).or(Some(&0)).unwrap();
+                            let o = history.stats.get(&PAResult::O).or(Some(&0)).unwrap();
+
+                            let h = h1b + h2b + h3b + hr;
+                            let ab = h + o;
+                            let pa = ab + bb + hbp;
+                            let avg = if ab > 0 { h * 1000 / ab } else { 0 };
+                            let obp = if pa > 0 { ((h + bb + hbp) * 1000) / pa } else { 0 };
+                            let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
+
+                            ui.label(format!("{}", history.year));
+                            ui.label(format!("{}", history.league));
+                            ui.label(format!("{}", history.team));
+                            ui.label(format!("{}", pa));
+                            ui.label(format!("{}", ab));
+                            ui.label(format!("{}", h));
+                            ui.label(format!("{}", h2b));
+                            ui.label(format!("{}", h3b));
+                            ui.label(format!("{}", hr));
+                            ui.label(format!("{}", bb));
+                            ui.label(format!("{}", hbp));
+                            ui.label(format!("{}.{:03}", avg / 1000, avg % 1000));
+                            ui.label(format!("{}.{:03}", obp / 1000, obp % 1000));
+                            ui.label(format!("{}.{:03}", slg / 1000, slg % 1000));
                             ui.end_row();
-
-                            for player in &team.players {
-                                ui.label(&player.fullname());
-                                ui.end_row();
-                            }
-                        });
-                    }
-
+                        }
+                    });
 
                     mode
                 }

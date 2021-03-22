@@ -34,11 +34,11 @@ pub(crate) struct History {
 }
 
 impl History {
-    pub(crate) fn add_results(&mut self, year: u32, league: usize, rank: usize, results: Results) {
+    pub(crate) fn record_results(&mut self, year: u32, league: usize, rank: usize, results: Results) {
         self.results.push( HistoricalResults {
             year,
-            league,
-            rank,
+            league: league + 1,
+            rank: rank + 1,
             win: results.win,
             lose: results.lose,
         });
@@ -46,7 +46,7 @@ impl History {
 }
 
 pub(crate) struct Team {
-    pub(crate) id: usize,
+    pub(crate) id: u32,
     pub(crate) abbr: String,
     city: String,
     state: String,
@@ -57,7 +57,7 @@ pub(crate) struct Team {
 }
 
 impl Team {
-    pub(crate) fn new(data: &mut Data, year: u32, id: usize, rng: &mut ThreadRng) -> Self {
+    pub(crate) fn new(data: &mut Data, year: u32, id: u32, rng: &mut ThreadRng) -> Self {
         let loc = data.pull_loc();
         let mut loc = loc.split(',');
         let abbr = loc.next().or(Some("")).unwrap().to_owned();

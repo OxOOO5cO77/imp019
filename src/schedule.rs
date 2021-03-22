@@ -1,26 +1,63 @@
-use rand::{Rng, rngs::ThreadRng};
+use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
+
+use crate::player::PAResult;
+use crate::team::Team;
 
 #[derive(Default)]
 pub(crate) struct Scoreboard {
     pub(crate) team: usize,
+    onbase: [bool; 4],
     pub(crate) r: u8,
-//    h: u8,
-//    e: u8,
+//    pub(crate) h: u8,
+//    pub(crate) e: u8,
+    pub(crate) ab: u8,
+
 }
 
 impl Scoreboard {
     fn new(team: usize) -> Self {
         Scoreboard {
             team,
-            ..Default::default()
+            ..Scoreboard::default()
         }
+    }
+
+    fn advance_onbase(&mut self, batter: bool, amt: u8) -> u8 {
+        let mut runs = 0;
+
+        self.onbase[0] = batter;
+        for _ in 0..amt {
+            if self.onbase[3] {
+                runs += 1;
+            }
+            self.onbase[3] = self.onbase[2];
+            self.onbase[2] = self.onbase[1];
+            self.onbase[1] = self.onbase[0];
+            self.onbase[0] = false;
+        }
+        runs
     }
 }
 
+#[derive(PartialEq)]
+enum Inning {
+    Top,
+    Middle,
+    Bottom,
+    End,
+}
+
+impl Default for Inning {
+    fn default() -> Self { Inning::Top }
+}
+
+#[derive(Default)]
 pub(crate) struct Game {
     pub(crate) home: Scoreboard,
     pub(crate) away: Scoreboard,
+    inning: (u8, Inning),
+    outs: u8,
 }
 
 impl Game {
@@ -28,17 +65,62 @@ impl Game {
         Game {
             home: Scoreboard::new(home),
             away: Scoreboard::new(away),
+            ..Game::default()
         }
     }
 
-    pub(crate) fn sim(&mut self, rng: &mut ThreadRng) {
-        self.home.r = rng.gen_range(0..12);
-        self.away.r = rng.gen_range(0..12);
-        if self.home.r == self.away.r {
-            if rng.gen_bool(0.5) {
-                self.home.r += 1
-            } else {
-                self.away.r += 1
+    fn complete(&self) -> bool {
+        self.inning.0 >= 9 && ((self.inning.1 != Inning::Top && self.home.r > self.away.r) || (self.inning.1 == Inning::End && self.away.r > self.home.r))
+    }
+
+    fn is_away(&self) -> bool {
+        self.inning.1 == Inning::Top || self.inning.1 == Inning::Middle
+    }
+
+    pub(crate) fn sim(&mut self, teams: &mut [Team], rng: &mut ThreadRng) {
+        self.inning.0 = 1;
+        while !self.complete() {
+            if self.inning.1 == Inning::Middle {
+                self.home.onbase.fill(false);
+                self.outs = 0;
+                self.inning.1 = Inning::Bottom;
+                continue;
+            }
+            if self.inning.1 == Inning::End {
+                self.away.onbase.fill(false);
+                self.outs = 0;
+                self.inning.0 += 1;
+                self.inning.1 = Inning::Top;
+                continue;
+            }
+
+            let scoreboard = if self.is_away() { &mut self.away } else { &mut self.home };
+
+            let team = &mut teams[scoreboard.team];
+            let player = &mut team.players[scoreboard.ab as usize];
+            let result = player.expect.choose_weighted(rng, |o| o.1).unwrap().0;
+            let runs = match result {
+                PAResult::H1b => scoreboard.advance_onbase(true, 1),
+                PAResult::H2b => scoreboard.advance_onbase(true, 2),
+                PAResult::H3b => scoreboard.advance_onbase(true, 3),
+                PAResult::HR => scoreboard.advance_onbase(true, 4),
+                PAResult::BB => scoreboard.advance_onbase(true, 1),
+                PAResult::HBP => scoreboard.advance_onbase(true, 1),
+                PAResult::O => {
+                    self.outs += 1;
+                    0
+                }
+            };
+            scoreboard.r += runs;
+            player.stats.push(result);
+            scoreboard.ab = (scoreboard.ab + 1) % 9;
+
+            if self.outs >= 3 {
+                if self.inning.1 == Inning::Top {
+                    self.inning.1 = Inning::Middle;
+                } else if self.inning.1 == Inning::Bottom {
+                    self.inning.1 = Inning::End;
+                }
             }
         }
     }
@@ -52,7 +134,7 @@ pub(crate) struct Schedule {
 impl Schedule {
     pub(crate) fn new(teams: usize, rng: &mut ThreadRng) -> Self {
         let mut raw_matchups = Vec::new();
-        raw_matchups.reserve(teams*teams);
+        raw_matchups.reserve(teams * teams);
 
         for home in 0..teams {
             for away in 0..teams {
@@ -84,11 +166,11 @@ impl Schedule {
         }
 
         let mut games = Vec::new();
-        for idx in (0..matchups.len()).step_by(teams/2)  {
+        for idx in (0..matchups.len()).step_by(teams / 2) {
             for _ in 0..4 {
-                for offset in 0..(teams/2) {
-                    let game = &matchups[idx+offset];
-                    games.push( Game::new( game.home.team, game.away.team));
+                for offset in 0..(teams / 2) {
+                    let game = &matchups[idx + offset];
+                    games.push(Game::new(game.home.team, game.away.team));
                 }
             }
         }

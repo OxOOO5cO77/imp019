@@ -7,21 +7,23 @@ use crate::schedule::Schedule;
 use crate::team::Team;
 
 pub struct League {
+    id: u32,
     pub(crate) teams: Vec<Team>,
     pub(crate) schedule: Schedule,
 }
 
 impl League {
-    pub(crate) fn new(data: &mut Data, team_count: usize, year: u32, id: &mut usize, rng: &mut ThreadRng) -> League {
+    pub(crate) fn new(id: u32, data: &mut Data, team_count: usize, year: u32, team_id: &mut u32, rng: &mut ThreadRng) -> League {
         let mut teams = Vec::<Team>::new();
         for _ in 0..team_count {
-            teams.push(Team::new(data, year, *id, rng));
-            *id += 1;
+            teams.push(Team::new(data, year, *team_id, rng));
+            *team_id += 1;
         }
 
         let schedule = Schedule::new(team_count, rng);
 
         League {
+            id,
             teams,
             schedule,
         }
@@ -39,7 +41,7 @@ impl League {
             let teams = self.teams.len();
             for idx in first_idx..(first_idx + (teams / 2)) {
                 if let Some(game) = self.schedule.games.get_mut(idx) {
-                    game.sim(&mut rng);
+                    game.sim(&mut self.teams, &mut rng);
 
                     if game.home.r > game.away.r {
                         self.teams[game.home.team].results.win += 1;
@@ -62,13 +64,18 @@ impl League {
 pub(crate) fn end_of_season(leagues: &mut Vec<League>, count: usize, year: u32, rng: &mut ThreadRng) {
     // record history
     for (league_idx, league) in leagues.iter_mut().enumerate() {
-        for (team_idx, team) in league.teams.iter_mut().enumerate() {
-            team.history.add_results(year, league_idx, team_idx, team.results);
+        for (rank, team) in league.teams.iter_mut().enumerate() {
+            team.history.record_results(year, league_idx, rank, team.results);
             team.history.wins += team.results.win;
             team.history.losses += team.results.lose;
-            let pos = Some(((league_idx + 1) * 100 + (team_idx + 1)) as u32);
+            let pos = Some(((league_idx + 1) * 100 + (rank + 1)) as u32);
             team.history.best = if team.history.best.is_none() { pos } else { min(pos, team.history.best) };
             team.history.worst = if team.history.worst.is_none() { pos } else { max(pos, team.history.worst) };
+
+            for player in &mut team.players {
+                player.record_stats(year,league.id,team.id);
+                player.reset_stats();
+            }
         }
     }
 
