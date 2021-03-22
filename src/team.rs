@@ -1,6 +1,7 @@
-use crate::player::Player;
-use crate::data::Data;
 use rand::rngs::ThreadRng;
+
+use crate::data::Data;
+use crate::player::Player;
 
 #[derive(Default, Copy, Clone)]
 pub(crate) struct Results {
@@ -35,7 +36,7 @@ pub(crate) struct History {
 
 impl History {
     pub(crate) fn record_results(&mut self, year: u32, league: usize, rank: usize, results: Results) {
-        self.results.push( HistoricalResults {
+        self.results.push(HistoricalResults {
             year,
             league: league + 1,
             rank: rank + 1,
@@ -46,7 +47,7 @@ impl History {
 }
 
 pub(crate) struct Team {
-    pub(crate) id: u32,
+    pub(crate) id: u64,
     pub(crate) abbr: String,
     city: String,
     state: String,
@@ -57,7 +58,7 @@ pub(crate) struct Team {
 }
 
 impl Team {
-    pub(crate) fn new(data: &mut Data, year: u32, id: u32, rng: &mut ThreadRng) -> Self {
+    pub(crate) fn new(data: &mut Data, year: u32, team_id: &mut u64, player_id: &mut u64, rng: &mut ThreadRng) -> Self {
         let loc = data.pull_loc();
         let mut loc = loc.split(',');
         let abbr = loc.next().or(Some("")).unwrap().to_owned();
@@ -67,11 +68,13 @@ impl Team {
 
         let mut players = Vec::new();
         for _ in 0..25 {
-            players.push(Player::new(data,rng));
+            players.push(Player::new(data, player_id, rng));
         }
 
+        *team_id += 1;
+
         Team {
-            id,
+            id: *team_id,
             abbr,
             city,
             state,

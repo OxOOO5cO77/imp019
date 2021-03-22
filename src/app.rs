@@ -15,8 +15,8 @@ use crate::team::Team;
 enum Mode {
     Schedule,
     Standings,
-    Team(u32),
-    Player(u32, u32),
+    Team(u64),
+    Player(u64, u64),
     Leaders(PAResult),
 }
 
@@ -51,11 +51,12 @@ impl Imp019App {
         data.nick.shuffle(&mut rng);
 
         let year = 2030;
-        let mut id = 0;
+        let mut team_id = 0;
+        let mut player_id = 0;
         let mut leagues = Vec::new();
-        leagues.push(League::new(1, &mut data, 20, year, &mut id, &mut rng));
-        leagues.push(League::new(2, &mut data, 20, year, &mut id, &mut rng));
-        leagues.push(League::new(3, &mut data, 20, year, &mut id, &mut rng));
+        leagues.push(League::new(1, &mut data, 20, year, &mut team_id, &mut player_id, &mut rng));
+        leagues.push(League::new(2, &mut data, 20, year, &mut team_id, &mut player_id, &mut rng));
+        leagues.push(League::new(3, &mut data, 20, year, &mut team_id, &mut player_id, &mut rng));
 
         Imp019App {
             rng,
@@ -265,7 +266,7 @@ impl epi::App for Imp019App {
                                     ui.end_row();
 
 
-                                    for (player_idx, player) in team.players.iter().enumerate() {
+                                    for player in &team.players {
                                         let h1b = player.stats.iter().filter(|o| **o == PAResult::H1b).count();
                                         let h2b = player.stats.iter().filter(|o| **o == PAResult::H2b).count();
                                         let h3b = player.stats.iter().filter(|o| **o == PAResult::H3b).count();
@@ -282,7 +283,7 @@ impl epi::App for Imp019App {
                                         let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
 
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(*id, player_idx as u32);
+                                            mode = Mode::Player(*id, player.id);
                                         }
                                         ui.label(format!("{}", pa));
                                         ui.label(format!("{}", ab));
@@ -305,14 +306,14 @@ impl epi::App for Imp019App {
 
                     mode
                 }
-                Mode::Player(team_id, id) => {
-                    let mut mode = Mode::Player(*team_id, *id);
+                Mode::Player(team_id, player_id) => {
+                    let mut mode = Mode::Player(*team_id, *player_id);
                     if ui.button("Close").clicked() {
                         mode = Mode::Team(*team_id);
                     }
 
                     let team = &mut league.teams.iter().find(|o| o.id == *team_id).unwrap();
-                    let player = &team.players[*id as usize];
+                    let player = &team.players.iter().find(|o| o.id == *player_id).unwrap();
 
                     egui::Grid::new("history").striped(true).show(ui, |ui| {
                         ui.label("Year");

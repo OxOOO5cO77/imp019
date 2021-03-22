@@ -21,12 +21,13 @@ pub(crate) enum PAResult {
 pub(crate) struct HistoricalStats {
     pub(crate) year: u32,
     pub(crate) league: u32,
-    pub(crate) team: u32,
+    pub(crate) team: u64,
     pub(crate) stats: HashMap<PAResult, u32>,
 }
 
 #[derive(Default)]
 pub(crate) struct Player {
+    pub(crate) id: u64,
     name_first: String,
     name_last: String,
     pub(crate) expect: Vec<(PAResult, u32)>,
@@ -35,7 +36,7 @@ pub(crate) struct Player {
 }
 
 impl Player {
-    pub(crate) fn new(data: &Data, rng: &mut ThreadRng) -> Self {
+    pub(crate) fn new(data: &Data, id: &mut u64, rng: &mut ThreadRng) -> Self {
         let name_first = data.names_first.choose_weighted(rng, |o| o.1).unwrap().0.clone();
         let name_last = data.names_last.choose_weighted(rng, |o| o.1).unwrap().0.clone();
 
@@ -57,7 +58,10 @@ impl Player {
         expect.push((PAResult::HBP, hbp));
         expect.push((PAResult::O, o));
 
+        *id += 1;
+
         Player {
+            id: *id,
             name_first,
             name_last,
             expect,
@@ -73,11 +77,11 @@ impl Player {
         self.stats.clear();
     }
 
-    pub(crate) fn record_stats(&mut self, year: u32, league: u32, team: u32) {
+    pub(crate) fn record_stats(&mut self, year: u32, league: u32, team_id: u64) {
         let mut historical = HistoricalStats {
             year,
             league,
-            team,
+            team: team_id,
             ..HistoricalStats::default()
         };
         for stat in &self.stats {

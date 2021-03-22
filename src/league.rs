@@ -13,11 +13,10 @@ pub struct League {
 }
 
 impl League {
-    pub(crate) fn new(id: u32, data: &mut Data, team_count: usize, year: u32, team_id: &mut u32, rng: &mut ThreadRng) -> League {
+    pub(crate) fn new(id: u32, data: &mut Data, team_count: usize, year: u32, team_id: &mut u64, player_id: &mut u64, rng: &mut ThreadRng) -> League {
         let mut teams = Vec::<Team>::new();
         for _ in 0..team_count {
-            teams.push(Team::new(data, year, *team_id, rng));
-            *team_id += 1;
+            teams.push(Team::new(data, year, team_id, player_id, rng));
         }
 
         let schedule = Schedule::new(team_count, rng);
