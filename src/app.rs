@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use eframe::{egui, epi};
 use eframe::egui::Button;
 use ordinal::Ordinal;
@@ -14,7 +16,8 @@ enum Mode {
     Schedule,
     Standings,
     Team(u32),
-    Player(u32,u32),
+    Player(u32, u32),
+    Leaders(PAResult),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -116,12 +119,16 @@ impl epi::App for Imp019App {
             for cnt in 0..self.leagues.len() {
                 ui.horizontal(|ui| {
                     ui.label(format!("League {}", cnt + 1));
-                    if ui.button("Schedule").clicked() {
+                    if ui.button("Sche").clicked() {
                         self.disp_mode = Mode::Schedule;
                         self.disp_league = cnt;
                     }
-                    if ui.button("Standings").clicked() {
+                    if ui.button("Stan").clicked() {
                         self.disp_mode = Mode::Standings;
+                        self.disp_league = cnt;
+                    }
+                    if ui.button("Lead").clicked() {
+                        self.disp_mode = Mode::Leaders(PAResult::HR);
                         self.disp_league = cnt;
                     }
                 });
@@ -274,8 +281,8 @@ impl epi::App for Imp019App {
                                         let obp = if pa > 0 { ((h + bb + hbp) * 1000) / pa } else { 0 };
                                         let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
 
-                                        if ui.add( Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(*id,player_idx as u32);
+                                        if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
+                                            mode = Mode::Player(*id, player_idx as u32);
                                         }
                                         ui.label(format!("{}", pa));
                                         ui.label(format!("{}", ab));
@@ -298,8 +305,8 @@ impl epi::App for Imp019App {
 
                     mode
                 }
-                Mode::Player(team_id,id) => {
-                    let mut mode = Mode::Player(*team_id,*id);
+                Mode::Player(team_id, id) => {
+                    let mut mode = Mode::Player(*team_id, *id);
                     if ui.button("Close").clicked() {
                         mode = Mode::Team(*team_id);
                     }
@@ -344,6 +351,93 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", history.year));
                             ui.label(format!("{}", history.league));
                             ui.label(format!("{}", history.team));
+                            ui.label(format!("{}", pa));
+                            ui.label(format!("{}", ab));
+                            ui.label(format!("{}", h));
+                            ui.label(format!("{}", h2b));
+                            ui.label(format!("{}", h3b));
+                            ui.label(format!("{}", hr));
+                            ui.label(format!("{}", bb));
+                            ui.label(format!("{}", hbp));
+                            ui.label(format!("{}.{:03}", avg / 1000, avg % 1000));
+                            ui.label(format!("{}.{:03}", obp / 1000, obp % 1000));
+                            ui.label(format!("{}.{:03}", slg / 1000, slg % 1000));
+                            ui.end_row();
+                        }
+                    });
+
+                    mode
+                }
+                Mode::Leaders(result) => {
+                    let mut mode = Mode::Leaders(*result);
+
+                    egui::Grid::new("leaders").striped(true).show(ui, |ui| {
+                        ui.label("#");
+                        ui.label("Name");
+                        ui.label("Team");
+                        ui.label("PA");
+                        ui.label("AB");
+                        ui.label("H");
+                        if ui.button("2B").clicked() {
+                            mode = Mode::Leaders(PAResult::H2b);
+                        }
+                        if ui.button("3B").clicked() {
+                            mode = Mode::Leaders(PAResult::H3b);
+                        }
+                        if ui.button("HR").clicked() {
+                            mode = Mode::Leaders(PAResult::HR);
+                        }
+                        if ui.button("BB").clicked() {
+                            mode = Mode::Leaders(PAResult::BB);
+                        }
+                        if ui.button("HBP").clicked() {
+                            mode = Mode::Leaders(PAResult::HBP);
+                        }
+                        ui.label("AVG");
+                        ui.label("OBP");
+                        ui.label("SLG");
+                        ui.end_row();
+
+                        let mut all_players = Vec::new();
+
+                        for team in league.teams.iter() {
+                            for player in team.players.iter() {
+                                all_players.push((&team.abbr, player));
+                            }
+                        }
+
+                        all_players.sort_by_key(|o| o.1.stats.iter().filter(|o| *o == result).count());
+                        all_players.reverse();
+
+                        for (rank, ap) in all_players[0..30].iter().enumerate() {
+                            let player = ap.1;
+
+                            ui.label(format!("{}", rank + 1));
+                            ui.label(player.fullname());
+                            ui.label(ap.0);
+
+                            let mut stats = HashMap::new();
+                            for stat in player.stats.iter() {
+                                let value = stats.entry(stat).or_insert(0);
+                                *value += 1;
+                            }
+                            let h1b = stats.get(&PAResult::H1b).or(Some(&0)).unwrap();
+                            let h2b = stats.get(&PAResult::H2b).or(Some(&0)).unwrap();
+                            let h3b = stats.get(&PAResult::H3b).or(Some(&0)).unwrap();
+                            let hr = stats.get(&PAResult::HR).or(Some(&0)).unwrap();
+                            let bb = stats.get(&PAResult::BB).or(Some(&0)).unwrap();
+                            let hbp = stats.get(&PAResult::HBP).or(Some(&0)).unwrap();
+                            let o = stats.get(&PAResult::O).or(Some(&0)).unwrap();
+
+
+                            let h = h1b + h2b + h3b + hr;
+                            let ab = h + o;
+                            let pa = ab + bb + hbp;
+                            let avg = if ab > 0 { h * 1000 / ab } else { 0 };
+                            let obp = if pa > 0 { ((h + bb + hbp) * 1000) / pa } else { 0 };
+                            let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
+
+
                             ui.label(format!("{}", pa));
                             ui.label(format!("{}", ab));
                             ui.label(format!("{}", h));
