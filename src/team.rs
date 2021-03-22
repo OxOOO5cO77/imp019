@@ -61,9 +61,9 @@ impl Team {
     pub(crate) fn new(data: &mut Data, year: u32, team_id: &mut u64, player_id: &mut u64, rng: &mut ThreadRng) -> Self {
         let loc = data.pull_loc();
         let mut loc = loc.split(',');
-        let abbr = loc.next().or(Some("")).unwrap().to_owned();
-        let city = loc.next().or(Some("")).unwrap().to_owned();
-        let state = loc.next().or(Some("")).unwrap().to_owned() + "-" + loc.next().or(Some("")).unwrap();
+        let abbr = loc.next().unwrap_or("").to_owned();
+        let city = loc.next().unwrap_or("").to_owned();
+        let state = loc.next().unwrap_or("").to_owned() + "-" + loc.next().unwrap_or("");
 
 
         let mut players = Vec::new();

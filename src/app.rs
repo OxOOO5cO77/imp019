@@ -143,7 +143,7 @@ impl epi::App for Imp019App {
                 Mode::Schedule => {
                     let total_games = league.schedule.games.len();
 
-                    let cur_idx = league.schedule.games.iter().position(|o| o.home.r == o.away.r).or(Some(total_games)).unwrap();
+                    let cur_idx = league.schedule.games.iter().position(|o| o.home.r == o.away.r).unwrap_or(total_games);
                     let teams = league.teams.len();
 
                     if cur_idx < total_games {
@@ -334,13 +334,13 @@ impl epi::App for Imp019App {
 
 
                         for history in &player.historical {
-                            let h1b = history.stats.get(&PAResult::H1b).or(Some(&0)).unwrap();
-                            let h2b = history.stats.get(&PAResult::H2b).or(Some(&0)).unwrap();
-                            let h3b = history.stats.get(&PAResult::H3b).or(Some(&0)).unwrap();
-                            let hr = history.stats.get(&PAResult::HR).or(Some(&0)).unwrap();
-                            let bb = history.stats.get(&PAResult::BB).or(Some(&0)).unwrap();
-                            let hbp = history.stats.get(&PAResult::HBP).or(Some(&0)).unwrap();
-                            let o = history.stats.get(&PAResult::O).or(Some(&0)).unwrap();
+                            let h1b = history.stats.get(&PAResult::H1b).unwrap_or(&0);
+                            let h2b = history.stats.get(&PAResult::H2b).unwrap_or(&0);
+                            let h3b = history.stats.get(&PAResult::H3b).unwrap_or(&0);
+                            let hr = history.stats.get(&PAResult::HR).unwrap_or(&0);
+                            let bb = history.stats.get(&PAResult::BB).unwrap_or(&0);
+                            let hbp = history.stats.get(&PAResult::HBP).unwrap_or(&0);
+                            let o = history.stats.get(&PAResult::O).unwrap_or(&0);
 
                             let h = h1b + h2b + h3b + hr;
                             let ab = h + o;
@@ -422,13 +422,13 @@ impl epi::App for Imp019App {
                                 let value = stats.entry(stat).or_insert(0);
                                 *value += 1;
                             }
-                            let h1b = stats.get(&PAResult::H1b).or(Some(&0)).unwrap();
-                            let h2b = stats.get(&PAResult::H2b).or(Some(&0)).unwrap();
-                            let h3b = stats.get(&PAResult::H3b).or(Some(&0)).unwrap();
-                            let hr = stats.get(&PAResult::HR).or(Some(&0)).unwrap();
-                            let bb = stats.get(&PAResult::BB).or(Some(&0)).unwrap();
-                            let hbp = stats.get(&PAResult::HBP).or(Some(&0)).unwrap();
-                            let o = stats.get(&PAResult::O).or(Some(&0)).unwrap();
+                            let h1b = stats.get(&PAResult::H1b).unwrap_or(&0);
+                            let h2b = stats.get(&PAResult::H2b).unwrap_or(&0);
+                            let h3b = stats.get(&PAResult::H3b).unwrap_or(&0);
+                            let hr = stats.get(&PAResult::HR).unwrap_or(&0);
+                            let bb = stats.get(&PAResult::BB).unwrap_or(&0);
+                            let hbp = stats.get(&PAResult::HBP).unwrap_or(&0);
+                            let o = stats.get(&PAResult::O).unwrap_or(&0);
 
 
                             let h = h1b + h2b + h3b + hr;
