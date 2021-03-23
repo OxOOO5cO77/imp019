@@ -72,8 +72,7 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, count: usize, year: u32, 
             team.history.worst = if team.history.worst.is_none() { pos } else { max(pos, team.history.worst) };
 
             for player in &mut team.players {
-                player.record_stats(year,league.id,team.id);
-                player.reset_stats();
+                player.end_of_year(year, league.id, team.id);
             }
         }
     }

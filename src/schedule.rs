@@ -1,7 +1,7 @@
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
-use crate::player::PAResult;
+use crate::player::Stat;
 use crate::team::Team;
 
 #[derive(Default)]
@@ -98,21 +98,22 @@ impl Game {
 
             let team = &mut teams[scoreboard.team];
             let player = &mut team.players[scoreboard.ab as usize];
-            let result = player.expect.choose_weighted(rng, |o| o.1).unwrap().0;
+            let result = player.get_expected_pa(rng);
             let runs = match result {
-                PAResult::H1b => scoreboard.advance_onbase(true, 1),
-                PAResult::H2b => scoreboard.advance_onbase(true, 2),
-                PAResult::H3b => scoreboard.advance_onbase(true, 3),
-                PAResult::HR => scoreboard.advance_onbase(true, 4),
-                PAResult::BB => scoreboard.advance_onbase(true, 1),
-                PAResult::HBP => scoreboard.advance_onbase(true, 1),
-                PAResult::O => {
+                Stat::H1b => scoreboard.advance_onbase(true, 1),
+                Stat::H2b => scoreboard.advance_onbase(true, 2),
+                Stat::H3b => scoreboard.advance_onbase(true, 3),
+                Stat::HR => scoreboard.advance_onbase(true, 4),
+                Stat::BB => scoreboard.advance_onbase(true, 1),
+                Stat::HBP => scoreboard.advance_onbase(true, 1),
+                Stat::O => {
                     self.outs += 1;
                     0
-                }
+                },
+                _ => 0
             };
             scoreboard.r += runs;
-            player.stats.push(result);
+            player.record_stat(result);
             scoreboard.ab = (scoreboard.ab + 1) % 9;
 
             if self.outs >= 3 {

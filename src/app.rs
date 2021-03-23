@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use eframe::{egui, epi};
 use eframe::egui::Button;
 use ordinal::Ordinal;
@@ -8,7 +6,7 @@ use rand::seq::SliceRandom;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
-use crate::player::PAResult;
+use crate::player::Stat;
 use crate::team::Team;
 
 #[derive(Copy, Clone)]
@@ -17,7 +15,7 @@ enum Mode {
     Standings,
     Team(u64),
     Player(u64, u64),
-    Leaders(PAResult),
+    Leaders(Stat),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -129,7 +127,7 @@ impl epi::App for Imp019App {
                         self.disp_league = cnt;
                     }
                     if ui.button("Lead").clicked() {
-                        self.disp_mode = Mode::Leaders(PAResult::HR);
+                        self.disp_mode = Mode::Leaders(Stat::HR);
                         self.disp_league = cnt;
                     }
                 });
@@ -252,6 +250,7 @@ impl epi::App for Imp019App {
                                 ui.heading("Players");
                                 egui::Grid::new("players").striped(true).show(ui, |ui| {
                                     ui.label("Name");
+                                    ui.label("Pos");
                                     ui.label("PA");
                                     ui.label("AB");
                                     ui.label("H");
@@ -267,35 +266,23 @@ impl epi::App for Imp019App {
 
 
                                     for player in &team.players {
-                                        let h1b = player.stats.iter().filter(|o| **o == PAResult::H1b).count();
-                                        let h2b = player.stats.iter().filter(|o| **o == PAResult::H2b).count();
-                                        let h3b = player.stats.iter().filter(|o| **o == PAResult::H3b).count();
-                                        let hr = player.stats.iter().filter(|o| **o == PAResult::HR).count();
-                                        let bb = player.stats.iter().filter(|o| **o == PAResult::BB).count();
-                                        let hbp = player.stats.iter().filter(|o| **o == PAResult::HBP).count();
-                                        let o = player.stats.iter().filter(|o| **o == PAResult::O).count();
-
-                                        let h = h1b + h2b + h3b + hr;
-                                        let ab = h + o;
-                                        let pa = ab + bb + hbp;
-                                        let avg = if ab > 0 { h * 1000 / ab } else { 0 };
-                                        let obp = if pa > 0 { ((h + bb + hbp) * 1000) / pa } else { 0 };
-                                        let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
+                                        let stats = player.get_stats();
 
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
                                             mode = Mode::Player(*id, player.id);
                                         }
-                                        ui.label(format!("{}", pa));
-                                        ui.label(format!("{}", ab));
-                                        ui.label(format!("{}", h));
-                                        ui.label(format!("{}", h2b));
-                                        ui.label(format!("{}", h3b));
-                                        ui.label(format!("{}", hr));
-                                        ui.label(format!("{}", bb));
-                                        ui.label(format!("{}", hbp));
-                                        ui.label(format!("{}.{:03}", avg / 1000, avg % 1000));
-                                        ui.label(format!("{}.{:03}", obp / 1000, obp % 1000));
-                                        ui.label(format!("{}.{:03}", slg / 1000, slg % 1000));
+                                        ui.label(player.display_position());
+                                        ui.label(format!("{}", stats.pa));
+                                        ui.label(format!("{}", stats.ab));
+                                        ui.label(format!("{}", stats.h));
+                                        ui.label(format!("{}", stats.h2b));
+                                        ui.label(format!("{}", stats.h3b));
+                                        ui.label(format!("{}", stats.hr));
+                                        ui.label(format!("{}", stats.bb));
+                                        ui.label(format!("{}", stats.hbp));
+                                        ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
+                                        ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
+                                        ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
                                         ui.end_row();
                                     }
                                 });
@@ -334,35 +321,22 @@ impl epi::App for Imp019App {
 
 
                         for history in &player.historical {
-                            let h1b = history.stats.get(&PAResult::H1b).unwrap_or(&0);
-                            let h2b = history.stats.get(&PAResult::H2b).unwrap_or(&0);
-                            let h3b = history.stats.get(&PAResult::H3b).unwrap_or(&0);
-                            let hr = history.stats.get(&PAResult::HR).unwrap_or(&0);
-                            let bb = history.stats.get(&PAResult::BB).unwrap_or(&0);
-                            let hbp = history.stats.get(&PAResult::HBP).unwrap_or(&0);
-                            let o = history.stats.get(&PAResult::O).unwrap_or(&0);
-
-                            let h = h1b + h2b + h3b + hr;
-                            let ab = h + o;
-                            let pa = ab + bb + hbp;
-                            let avg = if ab > 0 { h * 1000 / ab } else { 0 };
-                            let obp = if pa > 0 { ((h + bb + hbp) * 1000) / pa } else { 0 };
-                            let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
+                            let stats = history.get_stats();
 
                             ui.label(format!("{}", history.year));
                             ui.label(format!("{}", history.league));
                             ui.label(format!("{}", history.team));
-                            ui.label(format!("{}", pa));
-                            ui.label(format!("{}", ab));
-                            ui.label(format!("{}", h));
-                            ui.label(format!("{}", h2b));
-                            ui.label(format!("{}", h3b));
-                            ui.label(format!("{}", hr));
-                            ui.label(format!("{}", bb));
-                            ui.label(format!("{}", hbp));
-                            ui.label(format!("{}.{:03}", avg / 1000, avg % 1000));
-                            ui.label(format!("{}.{:03}", obp / 1000, obp % 1000));
-                            ui.label(format!("{}.{:03}", slg / 1000, slg % 1000));
+                            ui.label(format!("{}", stats.pa));
+                            ui.label(format!("{}", stats.ab));
+                            ui.label(format!("{}", stats.h));
+                            ui.label(format!("{}", stats.h2b));
+                            ui.label(format!("{}", stats.h3b));
+                            ui.label(format!("{}", stats.hr));
+                            ui.label(format!("{}", stats.bb));
+                            ui.label(format!("{}", stats.hbp));
+                            ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
+                            ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
+                            ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
                             ui.end_row();
                         }
                     });
@@ -376,27 +350,39 @@ impl epi::App for Imp019App {
                         ui.label("#");
                         ui.label("Name");
                         ui.label("Team");
-                        ui.label("PA");
-                        ui.label("AB");
-                        ui.label("H");
+                        if ui.button("PA").clicked() {
+                            mode = Mode::Leaders(Stat::PA);
+                        }
+                        if ui.button("AB").clicked() {
+                            mode = Mode::Leaders(Stat::AB);
+                        }
+                        if ui.button("H").clicked() {
+                            mode = Mode::Leaders(Stat::H);
+                        }
                         if ui.button("2B").clicked() {
-                            mode = Mode::Leaders(PAResult::H2b);
+                            mode = Mode::Leaders(Stat::H2b);
                         }
                         if ui.button("3B").clicked() {
-                            mode = Mode::Leaders(PAResult::H3b);
+                            mode = Mode::Leaders(Stat::H3b);
                         }
                         if ui.button("HR").clicked() {
-                            mode = Mode::Leaders(PAResult::HR);
+                            mode = Mode::Leaders(Stat::HR);
                         }
                         if ui.button("BB").clicked() {
-                            mode = Mode::Leaders(PAResult::BB);
+                            mode = Mode::Leaders(Stat::BB);
                         }
                         if ui.button("HBP").clicked() {
-                            mode = Mode::Leaders(PAResult::HBP);
+                            mode = Mode::Leaders(Stat::HBP);
                         }
-                        ui.label("AVG");
-                        ui.label("OBP");
-                        ui.label("SLG");
+                        if ui.button("AVG").clicked() {
+                            mode = Mode::Leaders(Stat::AVG);
+                        }
+                        if ui.button("OBP").clicked() {
+                            mode = Mode::Leaders(Stat::OBP);
+                        }
+                        if ui.button("SLG").clicked() {
+                            mode = Mode::Leaders(Stat::SLG);
+                        }
                         ui.end_row();
 
                         let mut all_players = Vec::new();
@@ -407,7 +393,7 @@ impl epi::App for Imp019App {
                             }
                         }
 
-                        all_players.sort_by_key(|o| o.1.stats.iter().filter(|o| *o == result).count());
+                        all_players.sort_by_key(|o| o.1.get_stat(*result));
                         all_players.reverse();
 
                         for (rank, ap) in all_players[0..30].iter().enumerate() {
@@ -417,39 +403,20 @@ impl epi::App for Imp019App {
                             ui.label(player.fullname());
                             ui.label(ap.0);
 
-                            let mut stats = HashMap::new();
-                            for stat in player.stats.iter() {
-                                let value = stats.entry(stat).or_insert(0);
-                                *value += 1;
-                            }
-                            let h1b = stats.get(&PAResult::H1b).unwrap_or(&0);
-                            let h2b = stats.get(&PAResult::H2b).unwrap_or(&0);
-                            let h3b = stats.get(&PAResult::H3b).unwrap_or(&0);
-                            let hr = stats.get(&PAResult::HR).unwrap_or(&0);
-                            let bb = stats.get(&PAResult::BB).unwrap_or(&0);
-                            let hbp = stats.get(&PAResult::HBP).unwrap_or(&0);
-                            let o = stats.get(&PAResult::O).unwrap_or(&0);
 
+                            let stats = player.get_stats();
 
-                            let h = h1b + h2b + h3b + hr;
-                            let ab = h + o;
-                            let pa = ab + bb + hbp;
-                            let avg = if ab > 0 { h * 1000 / ab } else { 0 };
-                            let obp = if pa > 0 { ((h + bb + hbp) * 1000) / pa } else { 0 };
-                            let slg = if ab > 0 { ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab } else { 0 };
-
-
-                            ui.label(format!("{}", pa));
-                            ui.label(format!("{}", ab));
-                            ui.label(format!("{}", h));
-                            ui.label(format!("{}", h2b));
-                            ui.label(format!("{}", h3b));
-                            ui.label(format!("{}", hr));
-                            ui.label(format!("{}", bb));
-                            ui.label(format!("{}", hbp));
-                            ui.label(format!("{}.{:03}", avg / 1000, avg % 1000));
-                            ui.label(format!("{}.{:03}", obp / 1000, obp % 1000));
-                            ui.label(format!("{}.{:03}", slg / 1000, slg % 1000));
+                            ui.label(format!("{}", stats.pa));
+                            ui.label(format!("{}", stats.ab));
+                            ui.label(format!("{}", stats.h));
+                            ui.label(format!("{}", stats.h2b));
+                            ui.label(format!("{}", stats.h3b));
+                            ui.label(format!("{}", stats.hr));
+                            ui.label(format!("{}", stats.bb));
+                            ui.label(format!("{}", stats.hbp));
+                            ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
+                            ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
+                            ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
                             ui.end_row();
                         }
                     });
