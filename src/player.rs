@@ -1,16 +1,12 @@
 use std::collections::HashMap;
 
-use enumflags2::{bitflags, BitFlags};
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
-use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::data::Data;
 
-#[bitflags]
-#[repr(u16)]
 #[derive(Copy, Clone, Debug, PartialEq, EnumIter)]
 pub(crate) enum Position {
     Pitcher,
@@ -142,20 +138,19 @@ impl HistoricalStats {
     }
 }
 
-#[derive(Default)]
 pub(crate) struct Player {
     pub(crate) id: u64,
     name_first: String,
     name_last: String,
     pub(crate) age: u8,
-    pos: BitFlags<Position>,
+    pub(crate) pos: Position,
     expect: Vec<(Stat, u32)>,
     stats: Vec<Stat>,
     pub(crate) historical: Vec<HistoricalStats>,
 }
 
 impl Player {
-    pub(crate) fn new(data: &Data, id: &mut u64, rng: &mut ThreadRng) -> Self {
+    pub(crate) fn new(data: &Data, id: u64, pos: &Position, rng: &mut ThreadRng) -> Self {
         let name_first = data.names_first.choose_weighted(rng, |o| o.1).unwrap().0.clone();
         let name_last = data.names_last.choose_weighted(rng, |o| o.1).unwrap().0.clone();
 
@@ -177,14 +172,15 @@ impl Player {
         expect.push((Stat::HBP, hbp));
         expect.push((Stat::O, o));
 
-        *id += 1;
-
         Player {
-            id: *id,
+            id,
+            pos: *pos,
             name_first,
             name_last,
             expect,
-            ..Player::default()
+            stats: vec![],
+            age: 0,
+            historical: vec![]
         }
     }
 
@@ -286,17 +282,6 @@ impl Player {
     }
 
     pub(crate) fn display_position(&self) -> String {
-        let mut output = String::new();
-
-        for pos in Position::iter() {
-            if self.pos.contains(pos) {
-                if !output.is_empty() {
-                    output.push(',');
-                }
-                output.push_str(pos.to_str())
-            }
-        }
-
-        output
+        self.pos.to_str().to_string()
     }
 }

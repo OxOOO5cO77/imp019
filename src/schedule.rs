@@ -1,24 +1,24 @@
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
-use crate::player::Stat;
+use crate::player::{Player, Stat};
 use crate::team::Team;
 
 #[derive(Default)]
 pub(crate) struct Scoreboard {
-    pub(crate) team: usize,
+    pub(crate) id: u64,
     onbase: [bool; 4],
     pub(crate) r: u8,
-//    pub(crate) h: u8,
+    //    pub(crate) h: u8,
 //    pub(crate) e: u8,
     pub(crate) ab: u8,
 
 }
 
 impl Scoreboard {
-    fn new(team: usize) -> Self {
+    fn new(id: u64) -> Self {
         Scoreboard {
-            team,
+            id,
             ..Scoreboard::default()
         }
     }
@@ -61,7 +61,7 @@ pub(crate) struct Game {
 }
 
 impl Game {
-    fn new(home: usize, away: usize) -> Self {
+    fn new(home: u64, away: u64) -> Self {
         Game {
             home: Scoreboard::new(home),
             away: Scoreboard::new(away),
@@ -77,7 +77,7 @@ impl Game {
         self.inning.1 == Inning::Top || self.inning.1 == Inning::Middle
     }
 
-    pub(crate) fn sim(&mut self, teams: &mut [Team], rng: &mut ThreadRng) {
+    pub(crate) fn sim(&mut self, teams: &mut Vec<Team>, players: &mut Vec<Player>, rng: &mut ThreadRng) {
         self.inning.0 = 1;
         while !self.complete() {
             if self.inning.1 == Inning::Middle {
@@ -96,8 +96,9 @@ impl Game {
 
             let scoreboard = if self.is_away() { &mut self.away } else { &mut self.home };
 
-            let team = &mut teams[scoreboard.team];
-            let player = &mut team.players[scoreboard.ab as usize];
+            let team = &mut teams.iter_mut().find(|o| o.id == scoreboard.id).unwrap();
+            let player = team.players[scoreboard.ab as usize];
+            let player = players.iter_mut().find(|o| o.id == player).unwrap();
             let result = player.get_expected_pa(rng);
             let runs = match result {
                 Stat::H1b => scoreboard.advance_onbase(true, 1),
@@ -109,7 +110,7 @@ impl Game {
                 Stat::O => {
                     self.outs += 1;
                     0
-                },
+                }
                 _ => 0
             };
             scoreboard.r += runs;
@@ -124,6 +125,11 @@ impl Game {
                 }
             }
         }
+
+        let home = teams.iter_mut().find(|o| o.id == self.home.id).unwrap();
+        home.results(self.home.r, self.away.r);
+        let away = teams.iter_mut().find(|o| o.id == self.away.id).unwrap();
+        away.results(self.away.r, self.home.r);
     }
 }
 
@@ -133,14 +139,15 @@ pub(crate) struct Schedule {
 }
 
 impl Schedule {
-    pub(crate) fn new(teams: usize, rng: &mut ThreadRng) -> Self {
+    pub(crate) fn new(teams: &[u64], rng: &mut ThreadRng) -> Self {
         let mut raw_matchups = Vec::new();
-        raw_matchups.reserve(teams * teams);
+        let team_count = teams.len();
+        raw_matchups.reserve(team_count * (team_count - 1));
 
-        for home in 0..teams {
-            for away in 0..teams {
+        for home in teams {
+            for away in teams {
                 if home != away {
-                    raw_matchups.push(Game::new(home, away));
+                    raw_matchups.push(Game::new(*home, *away));
                 }
             }
         }
@@ -149,14 +156,14 @@ impl Schedule {
 
         let mut matchups = Vec::new();
         while !raw_matchups.is_empty() {
-            let mut teams_to_pick = (0..teams).collect::<Vec<_>>();
+            let mut teams_to_pick = (0..team_count).map(|o| teams[o]).collect::<Vec<_>>();
             teams_to_pick.shuffle(rng);
 
             while !teams_to_pick.is_empty() {
                 if let Some(team) = teams_to_pick.pop() {
-                    if let Some(idx) = raw_matchups.iter().position(|x| x.home.team == team && teams_to_pick.contains(&x.away.team)) {
+                    if let Some(idx) = raw_matchups.iter().position(|x| x.home.id == team && teams_to_pick.contains(&x.away.id)) {
                         let game = raw_matchups.remove(idx);
-                        let other_team = if game.home.team == team { game.away.team } else { game.home.team };
+                        let other_team = if game.home.id == team { game.away.id } else { game.home.id };
                         matchups.push(game);
                         if let Some(other_pos) = teams_to_pick.iter().position(|&o| o == other_team) {
                             teams_to_pick.remove(other_pos);
@@ -167,11 +174,11 @@ impl Schedule {
         }
 
         let mut games = Vec::new();
-        for idx in (0..matchups.len()).step_by(teams / 2) {
+        for idx in (0..matchups.len()).step_by(team_count / 2) {
             for _ in 0..4 {
-                for offset in 0..(teams / 2) {
+                for offset in 0..(team_count / 2) {
                     let game = &matchups[idx + offset];
-                    games.push(Game::new(game.home.team, game.away.team));
+                    games.push(Game::new(game.home.id, game.away.id));
                 }
             }
         }
