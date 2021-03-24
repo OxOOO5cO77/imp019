@@ -1764,7 +1764,7 @@ Carlisle,20365
 Hargrove,20360
 Keenan,20353
 North,20343
-Dasilva,20338
+DaSilva,20338
 Ledesma,20311
 Messer,20306
 Westbrook,20284
@@ -4724,7 +4724,7 @@ Ault,7509
 Parikh,7506
 Langer,7506
 Lei,7504
-Maclean,7504
+MacLean,7504
 Bolt,7504
 Berlin,7503
 Diallo,7502
@@ -5654,7 +5654,7 @@ Harold,6141
 Ligon,6140
 Stilwell,6138
 Settles,6137
-Dossantos,6137
+dos Santos,6137
 Earls,6136
 Kellum,6136
 Mandujano,6133
@@ -15737,7 +15737,7 @@ Yadav,1853
 Torbert,1853
 Loew,1853
 Rayl,1853
-Delvillar,1853
+del Villar,1853
 Havener,1853
 Gonyea,1853
 Fossum,1852
@@ -15762,7 +15762,7 @@ Sherrick,1850
 Traina,1850
 Tagle,1849
 Turnquist,1849
-Delmonte,1849
+del Monte,1849
 Desroches,1849
 Ogara,1849
 Knisely,1849
@@ -16472,7 +16472,7 @@ Rundell,1745
 Cresswell,1745
 Denker,1745
 Cecere,1745
-Delcampo,1744
+del Campo,1744
 Howser,1744
 Lacher,1744
 Maltby,1744
@@ -16510,7 +16510,7 @@ Everman,1740
 Hillery,1740
 Huitron,1740
 Phaneuf,1740
-Poncedeleon,1740
+Ponce de Leon,1740
 Mimms,1740
 Konieczny,1740
 Lukes,1740
@@ -17865,7 +17865,7 @@ Housel,1566
 Higby,1566
 Haig,1566
 Dismukes,1566
-Delcarmen,1566
+del Carmen,1566
 Morriss,1566
 Boan,1566
 Veenstra,1566
@@ -19582,7 +19582,7 @@ Churchman,1378
 Gottesman,1378
 Ojo,1378
 Lecuyer,1378
-Maclaren,1378
+MacLaren,1378
 Lightle,1378
 Saffell,1378
 Thong,1378
@@ -20560,7 +20560,7 @@ Burts,1290
 Caughey,1290
 Harnett,1290
 Guptill,1290
-Maclennan,1290
+MacLennan,1290
 Occhipinti,1290
 Klaas,1289
 Ladouceur,1289
@@ -21318,7 +21318,7 @@ Gidley,1230
 Fillman,1230
 Heffley,1230
 Hensen,1229
-Delsignore,1229
+del Signore,1229
 Disher,1229
 Muldowney,1229
 Perrier,1229
@@ -21467,7 +21467,7 @@ Louderback,1218
 Deshazer,1218
 Deremer,1218
 Devillier,1218
-Delosangeles,1217
+de Los Angeles,1217
 Costas,1217
 Bronk,1217
 Fabry,1217
@@ -21641,7 +21641,7 @@ Prevatte,1205
 Nakai,1205
 Lamers,1205
 Langone,1205
-Maclachlan,1205
+MacLachlan,1205
 Meixner,1205
 Aceto,1205
 Urick,1205
@@ -21936,7 +21936,7 @@ Olcott,1184
 Overholser,1184
 Philippi,1184
 Heeren,1184
-Delmar,1184
+Del Mar,1184
 Eatman,1183
 Dimmitt,1183
 Conchas,1183
@@ -22840,7 +22840,7 @@ Hounshell,1121
 Cahall,1121
 Criscuolo,1121
 Deneen,1121
-Delmonico,1121
+Del Monico,1121
 Epler,1121
 Dively,1121
 Miler,1121
@@ -23530,7 +23530,7 @@ Burhans,1080
 Dobos,1080
 Engelking,1080
 Eagen,1079
-Delosrios,1079
+de los Rios,1079
 Clonts,1079
 Gilbride,1079
 Gerding,1079
@@ -24979,7 +24979,7 @@ McLeish,996
 Hamelin,996
 Honeyman,996
 Dilone,996
-Delaguila,995
+del Aguila,995
 Charters,995
 Hahne,995
 Guzzi,995
