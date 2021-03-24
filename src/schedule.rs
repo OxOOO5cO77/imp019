@@ -67,7 +67,8 @@ impl Game {
         Game {
             home: Scoreboard::new(home),
             away: Scoreboard::new(away),
-            ..Game::default()
+            inning: (1, Inning::Top),
+            outs: 0,
         }
     }
 
