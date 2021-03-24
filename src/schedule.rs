@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
@@ -77,7 +79,7 @@ impl Game {
         self.inning.1 == Inning::Top || self.inning.1 == Inning::Middle
     }
 
-    pub(crate) fn sim(&mut self, teams: &mut Vec<Team>, players: &mut Vec<Player>, rng: &mut ThreadRng) {
+    pub(crate) fn sim(&mut self, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, rng: &mut ThreadRng) {
         self.inning.0 = 1;
         while !self.complete() {
             if self.inning.1 == Inning::Middle {
@@ -96,9 +98,9 @@ impl Game {
 
             let scoreboard = if self.is_away() { &mut self.away } else { &mut self.home };
 
-            let team = &mut teams.iter_mut().find(|o| o.id == scoreboard.id).unwrap();
-            let player = team.players[scoreboard.ab as usize];
-            let player = players.iter_mut().find(|o| o.id == player).unwrap();
+            let team = teams.get(&scoreboard.id).unwrap();
+            let player_id = team.players[scoreboard.ab as usize];
+            let player = players.get_mut(&player_id).unwrap();
             let result = player.get_expected_pa(rng);
             let runs = match result {
                 Stat::H1b => scoreboard.advance_onbase(true, 1),
@@ -126,10 +128,8 @@ impl Game {
             }
         }
 
-        let home = teams.iter_mut().find(|o| o.id == self.home.id).unwrap();
-        home.results(self.home.r, self.away.r);
-        let away = teams.iter_mut().find(|o| o.id == self.away.id).unwrap();
-        away.results(self.away.r, self.home.r);
+        teams.get_mut(&self.home.id).unwrap().results(self.home.r, self.away.r);
+        teams.get_mut(&self.away.id).unwrap().results(self.away.r, self.home.r);
     }
 }
 

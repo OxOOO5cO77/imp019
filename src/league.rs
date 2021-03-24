@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rand::rngs::ThreadRng;
 
 use crate::player::Player;
@@ -28,15 +30,15 @@ impl League {
         }
     }
 
-    pub(crate) fn reset_schedule(&mut self, teams: &mut Vec<Team>, rng: &mut ThreadRng) {
+    pub(crate) fn reset_schedule(&mut self, teams: &mut HashMap<u64, Team>, rng: &mut ThreadRng) {
         for team_id in &self.teams {
-            let team = teams.iter_mut().find(|o| o.id == *team_id).unwrap();
+            let team = teams.get_mut(team_id).unwrap();
             team.results.reset();
         }
         self.schedule = Schedule::new(&self.teams, rng)
     }
 
-    pub(crate) fn sim(&mut self, team_data: &mut Vec<Team>, players: &mut Vec<Player>, mut rng: &mut ThreadRng) -> bool {
+    pub(crate) fn sim(&mut self, team_data: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, mut rng: &mut ThreadRng) -> bool {
         if let Some(first_idx) = self.schedule.games.iter().position(|o| o.home.r == o.away.r) {
             let teams = self.teams.len();
             for idx in first_idx..(first_idx + (teams / 2)) {
@@ -47,25 +49,22 @@ impl League {
             return true;
         }
 
-        self.teams.sort_by_key(|o| {
-            let team = team_data.iter().find(|t| t.id == *o).unwrap();
-            team.get_losses()
-        });
+        self.teams.sort_by_key(|o| team_data.get(o).unwrap().get_losses());
 
         false
     }
 }
 
-pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut Vec<Team>, players: &mut Vec<Player>, count: usize, year: u32, rng: &mut ThreadRng) {
+pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, count: usize, year: u32, rng: &mut ThreadRng) {
     // record history
-    for (league_idx, league) in leagues.iter_mut().enumerate() {
-        for (rank, team_id) in league.teams.iter_mut().enumerate() {
-            let team = teams.iter_mut().find(|o| o.id == *team_id).unwrap();
+    for (league_idx, league) in leagues.iter().enumerate() {
+        for (rank, team_id) in league.teams.iter().enumerate() {
+            let team = teams.get_mut(&team_id).unwrap();
             team.record_results(year, league_idx, rank, team.results);
 
-            for player_id in &mut team.players {
-                let player = players.iter_mut().find(|o| o.id == *player_id).unwrap();
-                player.end_of_year(year, league.id, team.id);
+            for player_id in &team.players {
+                let player = players.get_mut(player_id).unwrap();
+                player.end_of_year(year, league.id, *team_id);
             }
         }
     }

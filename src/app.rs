@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use eframe::{egui, epi};
 use eframe::egui::Button;
 use ordinal::Ordinal;
@@ -22,8 +24,8 @@ enum Mode {
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct Imp019App {
     rng: ThreadRng,
-    pub(crate) players: Vec<Player>,
-    pub(crate) teams: Vec<Team>,
+    pub(crate) players: HashMap<u64, Player>,
+    pub(crate) teams: HashMap<u64, Team>,
     pub(crate) leagues: Vec<League>,
     year: u32,
     pub(crate) disp_league: usize,
@@ -34,8 +36,8 @@ impl Default for Imp019App {
     fn default() -> Self {
         Imp019App {
             rng: rand::thread_rng(),
-            players: Vec::new(),
-            teams: Vec::new(),
+            players: HashMap::new(),
+            teams: HashMap::new(),
             leagues: Vec::new(),
             year: 2030,
             disp_league: 0,
@@ -84,21 +86,21 @@ impl Imp019App {
         }
 
         let mut player_id = 1;
-        let mut players = Vec::new();
+        let mut players = HashMap::new();
         players.reserve(2000);
         for pos in pos_gen {
             for _ in 1..=100 {
-                players.push(Player::new(&data, player_id, &pos, &mut rng));
+                players.insert(player_id, Player::new(&data, &pos, &mut rng));
                 player_id += 1;
             }
         }
 
-        let mut unused_players = players.iter().map(|o| DraftPlayer { id: o.id, pos: o.pos, taken: false }).collect::<Vec<_>>();
+        let mut unused_players = players.iter().map(|(k, v)| DraftPlayer { id: *k, pos: v.pos, taken: false }).collect::<Vec<_>>();
 
-        let mut teams = Vec::new();
+        let mut teams = HashMap::new();
         teams.reserve(60);
         for team_id in 1..=60 {
-            let mut team = Team::new(&mut data, year, team_id);
+            let mut team = Team::new(&mut data, year);
 
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::Catcher));
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::FirstBase));
@@ -111,10 +113,10 @@ impl Imp019App {
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::DesignatedHitter));
 
 
-            teams.push(team);
+            teams.insert(team_id, team);
         }
 
-        let mut remaining_teams = teams.iter().map(|o| o.id).collect();
+        let mut remaining_teams = teams.keys().map(|o| *o).collect();
 
         let mut leagues = Vec::new();
         leagues.push(League::new(1, 20, &mut remaining_teams, &mut rng));
@@ -128,7 +130,7 @@ impl Imp019App {
             leagues,
             year,
             disp_league: 0,
-            disp_mode: Mode::Schedule
+            disp_mode: Mode::Schedule,
         }
     }
 
@@ -216,8 +218,8 @@ impl epi::App for Imp019App {
                         ui.heading(format!("Today ({})", cur_idx / (teams / 2)));
                         for idx in cur_idx..(cur_idx + (teams / 2)) {
                             let game = &league.schedule.games[idx];
-                            let home_team = self.teams.iter().find(|o| o.id == game.home.id).unwrap();
-                            let away_team = self.teams.iter().find(|o| o.id == game.away.id).unwrap();
+                            let home_team = self.teams.get(&game.home.id).unwrap();
+                            let away_team = self.teams.get(&game.away.id).unwrap();
                             ui.label(format!("{} @ {}", away_team.abbr, home_team.abbr));
                         }
                     }
@@ -229,8 +231,8 @@ impl epi::App for Imp019App {
                         for past_idx in start..end {
                             if past_idx >= 0 {
                                 let game = &league.schedule.games[past_idx as usize];
-                                let home_team = self.teams.iter().find(|o| o.id == game.home.id).unwrap();
-                                let away_team = self.teams.iter().find(|o| o.id == game.away.id).unwrap();
+                                let home_team = self.teams.get(&game.home.id).unwrap();
+                                let away_team = self.teams.get(&game.away.id).unwrap();
                                 ui.label(format!("{} {:2} @ {:2} {}", away_team.abbr, game.away.r, game.home.r, home_team.abbr));
                             }
                         }
@@ -248,7 +250,7 @@ impl epi::App for Imp019App {
 
                         let teams = &mut league.teams.iter().collect::<Vec<_>>();
                         teams.sort_by_key(|o| {
-                            let team = self.teams.iter().find(|t| t.id == **o).unwrap();
+                            let team = self.teams.get(*o).unwrap();
                             team.win_pct()
                         });
                         teams.reverse();
@@ -256,11 +258,11 @@ impl epi::App for Imp019App {
 
                         let mut rank = 1;
                         for team_id in teams.iter() {
-                            let team = self.teams.iter().find(|o| o.id == **team_id).unwrap();
+                            let team = self.teams.get(*team_id).unwrap();
                             ui.label(format!("{}", rank));
                             ui.label(team.abbr.as_str());
                             if ui.add(Button::new(team.name()).frame(false)).clicked() {
-                                mode = Mode::Team(team.id);
+                                mode = Mode::Team(**team_id);
                             }
                             ui.label(format!("{}-{}", team.get_wins(), team.get_losses()));
                             ui.end_row();
@@ -275,7 +277,7 @@ impl epi::App for Imp019App {
                         mode = Mode::Standings;
                     }
 
-                    let team = self.teams.iter().find(|o| o.id == *id).unwrap();
+                    let team = self.teams.get(id).unwrap();
                     ui.label(team.name());
                     ui.label(format!("Founded: {}", team.history.founded));
                     ui.label(format!("Best: {}", as_league(team.history.best)));
@@ -330,12 +332,12 @@ impl epi::App for Imp019App {
                                     ui.end_row();
 
 
-                                    for player in &team.players {
-                                        let player = self.players.iter().find(|o| o.id == *player).unwrap();
+                                    for player_id in &team.players {
+                                        let player = self.players.get(player_id).unwrap();
                                         let stats = player.get_stats();
 
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(*id, player.id);
+                                            mode = Mode::Player(*id, *player_id);
                                         }
                                         ui.label(player.display_position());
                                         ui.label(format!("{}", stats.pa));
@@ -365,9 +367,6 @@ impl epi::App for Imp019App {
                         mode = Mode::Team(*team_id);
                     }
 
-                    let team = &self.teams.iter().find(|o| o.id == *team_id).unwrap();
-                    let player = &team.players.iter().find(|o| **o == *player_id).unwrap();
-
                     egui::Grid::new("history").striped(true).show(ui, |ui| {
                         ui.label("Year");
                         ui.label("League");
@@ -385,7 +384,7 @@ impl epi::App for Imp019App {
                         ui.label("SLG");
                         ui.end_row();
 
-                        let player = self.players.iter().find(|o| o.id == **player).unwrap();
+                        let player = self.players.get(player_id).unwrap();
                         for history in &player.historical {
                             let stats = history.get_stats();
 
@@ -454,9 +453,9 @@ impl epi::App for Imp019App {
                         let mut all_players = Vec::new();
 
                         for team_id in league.teams.iter() {
-                            let team = &self.teams.iter().find(|o| o.id == *team_id).unwrap();
+                            let team = &self.teams.get(team_id).unwrap();
                             for player in team.players.iter() {
-                                all_players.push((&team.abbr, self.players.iter().find(|o| o.id == *player).unwrap()));
+                                all_players.push((&team.abbr, self.players.get(player).unwrap()));
                             }
                         }
 

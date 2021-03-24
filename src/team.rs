@@ -1,5 +1,6 @@
+use std::cmp::{max, min};
+
 use crate::data::Data;
-use std::cmp::{min, max};
 
 #[derive(Default, Copy, Clone)]
 pub(crate) struct Results {
@@ -33,7 +34,6 @@ pub(crate) struct History {
 }
 
 pub(crate) struct Team {
-    pub(crate) id: u64,
     pub(crate) abbr: String,
     city: String,
     state: String,
@@ -44,7 +44,7 @@ pub(crate) struct Team {
 }
 
 impl Team {
-    pub(crate) fn new(data: &mut Data, year: u32, id: u64) -> Self {
+    pub(crate) fn new(data: &mut Data, year: u32) -> Self {
         let loc = data.pull_loc();
         let mut loc = loc.split(',');
         let abbr = loc.next().unwrap_or("").to_owned();
@@ -52,7 +52,6 @@ impl Team {
         let state = loc.next().unwrap_or("").to_owned() + "-" + loc.next().unwrap_or("");
 
         Team {
-            id,
             abbr,
             city,
             state,
@@ -70,7 +69,7 @@ impl Team {
         format!("{} {} ({})", self.city, self.nickname, self.state)
     }
 
-    pub(crate) fn results(&mut self, us: u8, them: u8 ) {
+    pub(crate) fn results(&mut self, us: u8, them: u8) {
         if us > them {
             self.results.win += 1;
         } else {
