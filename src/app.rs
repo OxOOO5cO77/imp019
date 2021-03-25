@@ -326,6 +326,8 @@ impl epi::App for Imp019App {
                                     ui.label("HR");
                                     ui.label("BB");
                                     ui.label("HBP");
+                                    ui.label("R");
+                                    ui.label("RBI");
                                     ui.label("AVG");
                                     ui.label("OBP");
                                     ui.label("SLG");
@@ -348,6 +350,8 @@ impl epi::App for Imp019App {
                                         ui.label(format!("{}", stats.hr));
                                         ui.label(format!("{}", stats.bb));
                                         ui.label(format!("{}", stats.hbp));
+                                        ui.label(format!("{}", stats.r));
+                                        ui.label(format!("{}", stats.rbi));
                                         ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
                                         ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
                                         ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
@@ -379,6 +383,8 @@ impl epi::App for Imp019App {
                         ui.label("HR");
                         ui.label("BB");
                         ui.label("HBP");
+                        ui.label("R");
+                        ui.label("RBI");
                         ui.label("AVG");
                         ui.label("OBP");
                         ui.label("SLG");
@@ -399,6 +405,8 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", stats.hr));
                             ui.label(format!("{}", stats.bb));
                             ui.label(format!("{}", stats.hbp));
+                            ui.label(format!("{}", stats.r));
+                            ui.label(format!("{}", stats.rbi));
                             ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
                             ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
                             ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
@@ -438,6 +446,12 @@ impl epi::App for Imp019App {
                         }
                         if ui.button("HBP").clicked() {
                             mode = Mode::Leaders(Stat::HBP);
+                        }
+                        if ui.button("R").clicked() {
+                            mode = Mode::Leaders(Stat::R);
+                        }
+                        if ui.button("RBI").clicked() {
+                            mode = Mode::Leaders(Stat::RBI);
                         }
                         if ui.button("AVG").clicked() {
                             mode = Mode::Leaders(Stat::AVG);
@@ -480,6 +494,8 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", stats.hr));
                             ui.label(format!("{}", stats.bb));
                             ui.label(format!("{}", stats.hbp));
+                            ui.label(format!("{}", stats.r));
+                            ui.label(format!("{}", stats.rbi));
                             ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
                             ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
                             ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));

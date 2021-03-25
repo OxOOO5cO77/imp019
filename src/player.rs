@@ -48,6 +48,8 @@ pub(crate) enum Stat {
     BB,
     HBP,
     O,
+    R,
+    RBI,
     // calculated
     H,
     AB,
@@ -88,6 +90,8 @@ pub(crate) struct Stats {
     pub(crate) hr: u32,
     pub(crate) bb: u32,
     pub(crate) hbp: u32,
+    pub(crate) r: u32,
+    pub(crate) rbi: u32,
     o: u32,
     pub(crate) h: u32,
     pub(crate) ab: u32,
@@ -114,6 +118,8 @@ impl HistoricalStats {
         let bb = *self.stats.get(&Stat::BB).unwrap_or(&0);
         let hbp = *self.stats.get(&Stat::HBP).unwrap_or(&0);
         let o = *self.stats.get(&Stat::O).unwrap_or(&0);
+        let r = *self.stats.get(&Stat::R).unwrap_or(&0);
+        let rbi = *self.stats.get(&Stat::RBI).unwrap_or(&0);
 
         let h = h1b + h2b + h3b + hr;
         let ab = h + o;
@@ -127,6 +133,8 @@ impl HistoricalStats {
             hr,
             bb,
             hbp,
+            r,
+            rbi,
             o,
             h,
             ab,
@@ -225,6 +233,8 @@ impl Player {
             Stat::BB => self.get_stats().bb,
             Stat::HBP => self.get_stats().hbp,
             Stat::O => self.get_stats().o,
+            Stat::R => self.get_stats().r,
+            Stat::RBI => self.get_stats().rbi,
             Stat::H => self.get_stats().h,
             Stat::AB => self.get_stats().ab,
             Stat::PA => self.get_stats().pa,
@@ -243,6 +253,8 @@ impl Player {
         let mut bb = 0;
         let mut hbp = 0;
         let mut o = 0;
+        let mut r = 0;
+        let mut rbi = 0;
 
         for stat in &self.stats {
             match stat {
@@ -253,6 +265,8 @@ impl Player {
                 Stat::BB => bb += 1,
                 Stat::HBP => hbp += 1,
                 Stat::O => o += 1,
+                Stat::R => r += 1,
+                Stat::RBI => rbi += 1,
                 _ => {}
             }
         }
@@ -269,6 +283,8 @@ impl Player {
             bb,
             hbp,
             o,
+            r,
+            rbi,
             h,
             ab,
             pa,

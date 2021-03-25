@@ -9,7 +9,8 @@ use crate::team::Team;
 #[derive(Default)]
 pub(crate) struct Scoreboard {
     pub(crate) id: u64,
-    onbase: [bool; 4],
+    onbase: [Option<u64>; 4],
+    runs_in: Vec<u64>,
     pub(crate) r: u8,
     //    pub(crate) h: u8,
 //    pub(crate) e: u8,
@@ -25,40 +26,56 @@ impl Scoreboard {
         }
     }
 
-    fn advance_onbase(&mut self, batter: bool, amt: u8) -> u8 {
-        let mut runs = 0;
-
-        self.onbase[0] = batter;
+    fn advance_onbase(&mut self, batter: u64, amt: u8) {
+        self.onbase[0] = Some(batter);
         for _ in 0..amt {
-            if self.onbase[3] {
-                runs += 1;
+            if self.onbase[1].is_some() {
+                if self.onbase[2].is_some() {
+                    if self.onbase[3].is_some() {
+                        self.runs_in.push(self.onbase[3].unwrap());
+                    }
+                    self.onbase[3] = self.onbase[2];
+                }
+                self.onbase[2] = self.onbase[1];
             }
-            self.onbase[3] = self.onbase[2];
-            self.onbase[2] = self.onbase[1];
             self.onbase[1] = self.onbase[0];
-            self.onbase[0] = false;
         }
-        runs
+        if amt > 0 {
+            for idx in 0..amt as usize {
+                self.onbase[idx] = None;
+            }
+        }
+    }
+
+    pub(crate) fn record_runs(&mut self) {
+        self.r += self.runs_in.len() as u8;
+        self.runs_in.clear();
     }
 }
 
 #[derive(PartialEq)]
-enum Inning {
+enum InningHalf {
     Top,
     Middle,
     Bottom,
     End,
 }
 
-impl Default for Inning {
-    fn default() -> Self { Inning::Top }
+impl Default for InningHalf {
+    fn default() -> Self { InningHalf::Top }
+}
+
+#[derive(Default)]
+struct Inning {
+    number: u8,
+    half: InningHalf,
 }
 
 #[derive(Default)]
 pub(crate) struct Game {
     pub(crate) home: Scoreboard,
     pub(crate) away: Scoreboard,
-    inning: (u8, Inning),
+    inning: Inning,
     outs: u8,
 }
 
@@ -67,33 +84,36 @@ impl Game {
         Game {
             home: Scoreboard::new(home),
             away: Scoreboard::new(away),
-            inning: (1, Inning::Top),
+            inning: Inning {
+                number: 1,
+                half: InningHalf::Top
+            },
             outs: 0,
         }
     }
 
     fn complete(&self) -> bool {
-        self.inning.0 >= 9 && ((self.inning.1 != Inning::Top && self.home.r > self.away.r) || (self.inning.1 == Inning::End && self.away.r > self.home.r))
+        self.inning.number >= 9 && ((self.inning.half != InningHalf::Top && self.home.r > self.away.r) || (self.inning.half == InningHalf::End && self.away.r > self.home.r))
     }
 
     fn is_away(&self) -> bool {
-        self.inning.1 == Inning::Top || self.inning.1 == Inning::Middle
+        self.inning.half == InningHalf::Top || self.inning.half == InningHalf::Middle
     }
 
     pub(crate) fn sim(&mut self, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, rng: &mut ThreadRng) {
-        self.inning.0 = 1;
+        self.inning.number = 1;
         while !self.complete() {
-            if self.inning.1 == Inning::Middle {
-                self.home.onbase.fill(false);
+            if self.inning.half == InningHalf::Middle {
+                self.home.onbase.fill(None);
                 self.outs = 0;
-                self.inning.1 = Inning::Bottom;
+                self.inning.half = InningHalf::Bottom;
                 continue;
             }
-            if self.inning.1 == Inning::End {
-                self.away.onbase.fill(false);
+            if self.inning.half == InningHalf::End {
+                self.away.onbase.fill(None);
                 self.outs = 0;
-                self.inning.0 += 1;
-                self.inning.1 = Inning::Top;
+                self.inning.number += 1;
+                self.inning.half = InningHalf::Top;
                 continue;
             }
 
@@ -103,28 +123,36 @@ impl Game {
             let player_id = team.players[scoreboard.ab as usize];
             let player = players.get_mut(&player_id).unwrap();
             let result = player.get_expected_pa(rng);
-            let runs = match result {
-                Stat::H1b => scoreboard.advance_onbase(true, 1),
-                Stat::H2b => scoreboard.advance_onbase(true, 2),
-                Stat::H3b => scoreboard.advance_onbase(true, 3),
-                Stat::HR => scoreboard.advance_onbase(true, 4),
-                Stat::BB => scoreboard.advance_onbase(true, 1),
-                Stat::HBP => scoreboard.advance_onbase(true, 1),
-                Stat::O => {
-                    self.outs += 1;
-                    0
-                }
-                _ => 0
+            match result {
+                Stat::H1b => scoreboard.advance_onbase(player_id, 1),
+                Stat::H2b => scoreboard.advance_onbase(player_id, 2),
+                Stat::H3b => scoreboard.advance_onbase(player_id, 3),
+                Stat::HR => scoreboard.advance_onbase(player_id, 4),
+                Stat::BB => scoreboard.advance_onbase(player_id, 1),
+                Stat::HBP => scoreboard.advance_onbase(player_id, 1),
+                Stat::O => self.outs += 1,
+                _ => {}
             };
-            scoreboard.r += runs;
             player.record_stat(result);
+
+            for _ in &scoreboard.runs_in {
+                player.record_stat(Stat::RBI);
+            }
+
+            for runner_id in &scoreboard.runs_in {
+                let runner = players.get_mut(&runner_id).unwrap();
+                runner.record_stat(Stat::R);
+            }
+
+            scoreboard.record_runs();
+
             scoreboard.ab = (scoreboard.ab + 1) % 9;
 
             if self.outs >= 3 {
-                if self.inning.1 == Inning::Top {
-                    self.inning.1 = Inning::Middle;
-                } else if self.inning.1 == Inning::Bottom {
-                    self.inning.1 = Inning::End;
+                if self.inning.half == InningHalf::Top {
+                    self.inning.half = InningHalf::Middle;
+                } else if self.inning.half == InningHalf::Bottom {
+                    self.inning.half = InningHalf::End;
                 }
             }
         }
@@ -187,5 +215,44 @@ impl Schedule {
         Schedule {
             games
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::schedule::Scoreboard;
+
+    #[test]
+    fn test_advance_onbase() {
+        let mut test1 = Scoreboard::new(0);
+        test1.advance_onbase(1, 1);
+        assert_eq!(test1.onbase, [None, Some(1), None, None]);
+
+        test1.advance_onbase(2, 2);
+        assert_eq!(test1.onbase, [None, None, Some(2), Some(1)]);
+
+        test1.advance_onbase(3, 1);
+        assert_eq!(test1.onbase, [None, Some(3), Some(2), Some(1)]);
+
+        test1.advance_onbase(4, 4);
+        assert_eq!(test1.onbase, [None, None, None, None]);
+        assert_eq!(test1.runs_in.len(), 4);
+
+        test1.runs_in.clear();
+        test1.advance_onbase(3,3);
+        test1.advance_onbase(2,2);
+        test1.advance_onbase(1,3);
+        assert_eq!(test1.onbase, [None, None, None, Some(1)]);
+        assert_eq!(test1.runs_in.len(), 2);
+
+        test1.runs_in.clear();
+        test1.advance_onbase(1,4);
+        assert_eq!(test1.onbase, [None, None, None, None]);
+        assert_eq!(test1.runs_in.len(), 2);
+
+        test1.runs_in.clear();
+        test1.advance_onbase(1,4);
+        assert_eq!(test1.onbase, [None, None, None, None]);
+        assert_eq!(test1.runs_in.len(), 1);
     }
 }
