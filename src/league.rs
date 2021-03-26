@@ -64,7 +64,7 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, 
 
             for player_id in &team.players {
                 let player = players.get_mut(player_id).unwrap();
-                player.end_of_year(year, league.id, *team_id);
+                player.record_stat_history(year, league.id, *team_id);
             }
         }
     }
@@ -91,5 +91,10 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, 
     // reset league
     for league in leagues {
         league.reset_schedule(teams, rng);
+    }
+
+    //update all player ages
+    for player in players.values_mut() {
+        player.update_age();
     }
 }

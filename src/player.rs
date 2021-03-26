@@ -223,7 +223,7 @@ impl Player {
         self.stats.push(stat);
     }
 
-    pub(crate) fn end_of_year(&mut self, year: u32, league: u32, team_id: u64) {
+    pub(crate) fn record_stat_history(&mut self, year: u32, league: u32, team_id: u64) {
         let mut historical = HistoricalStats {
             year,
             league,
@@ -236,9 +236,11 @@ impl Player {
         }
         self.historical.push(historical);
 
-        self.age += 1;
-
         self.reset_stats()
+    }
+
+    pub(crate) fn update_age(&mut self) {
+        self.age += 1;
     }
 
     pub(crate) fn get_expected_pa(&self, rng: &mut ThreadRng) -> Stat {
