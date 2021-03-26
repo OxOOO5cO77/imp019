@@ -71,16 +71,18 @@ impl Imp019App {
 
         let year = 2030;
 
-        let mut pos_gen = Vec::new();
-        pos_gen.push(Position::Catcher);
-        pos_gen.push(Position::FirstBase);
-        pos_gen.push(Position::SecondBase);
-        pos_gen.push(Position::ThirdBase);
-        pos_gen.push(Position::ShortStop);
-        pos_gen.push(Position::LeftField);
-        pos_gen.push(Position::CenterField);
-        pos_gen.push(Position::RightField);
-        pos_gen.push(Position::DesignatedHitter);
+        let mut pos_gen = vec![
+            Position::Catcher,
+            Position::FirstBase,
+            Position::SecondBase,
+            Position::ThirdBase,
+            Position::ShortStop,
+            Position::LeftField,
+            Position::CenterField,
+            Position::RightField,
+            Position::DesignatedHitter,
+        ];
+
         for _ in 0..9 {
             pos_gen.push(Position::Pitcher);
         }
@@ -116,12 +118,13 @@ impl Imp019App {
             teams.insert(team_id, team);
         }
 
-        let mut remaining_teams = teams.keys().map(|o| *o).collect();
+        let mut remaining_teams = teams.keys().copied().collect();
 
-        let mut leagues = Vec::new();
-        leagues.push(League::new(1, 20, &mut remaining_teams, &mut rng));
-        leagues.push(League::new(2, 20, &mut remaining_teams, &mut rng));
-        leagues.push(League::new(3, 20, &mut remaining_teams, &mut rng));
+        let leagues = vec![
+            League::new(1, 20, &mut remaining_teams, &mut rng),
+            League::new(2, 20, &mut remaining_teams, &mut rng),
+            League::new(3, 20, &mut remaining_teams, &mut rng),
+        ];
 
         Imp019App {
             rng,
@@ -197,7 +200,7 @@ impl epi::App for Imp019App {
                         self.disp_league = cnt;
                     }
                     if ui.button("Lead").clicked() {
-                        self.disp_mode = Mode::Leaders(Stat::HR);
+                        self.disp_mode = Mode::Leaders(Stat::Hr);
                         self.disp_league = cnt;
                     }
                 });
@@ -424,10 +427,10 @@ impl epi::App for Imp019App {
                         ui.label("Name");
                         ui.label("Team");
                         if ui.button("PA").clicked() {
-                            mode = Mode::Leaders(Stat::PA);
+                            mode = Mode::Leaders(Stat::Pa);
                         }
                         if ui.button("AB").clicked() {
-                            mode = Mode::Leaders(Stat::AB);
+                            mode = Mode::Leaders(Stat::Ab);
                         }
                         if ui.button("H").clicked() {
                             mode = Mode::Leaders(Stat::H);
@@ -439,28 +442,28 @@ impl epi::App for Imp019App {
                             mode = Mode::Leaders(Stat::H3b);
                         }
                         if ui.button("HR").clicked() {
-                            mode = Mode::Leaders(Stat::HR);
+                            mode = Mode::Leaders(Stat::Hr);
                         }
                         if ui.button("BB").clicked() {
-                            mode = Mode::Leaders(Stat::BB);
+                            mode = Mode::Leaders(Stat::Bb);
                         }
                         if ui.button("HBP").clicked() {
-                            mode = Mode::Leaders(Stat::HBP);
+                            mode = Mode::Leaders(Stat::Hbp);
                         }
                         if ui.button("R").clicked() {
                             mode = Mode::Leaders(Stat::R);
                         }
                         if ui.button("RBI").clicked() {
-                            mode = Mode::Leaders(Stat::RBI);
+                            mode = Mode::Leaders(Stat::Rbi);
                         }
                         if ui.button("AVG").clicked() {
-                            mode = Mode::Leaders(Stat::AVG);
+                            mode = Mode::Leaders(Stat::Avg);
                         }
                         if ui.button("OBP").clicked() {
-                            mode = Mode::Leaders(Stat::OBP);
+                            mode = Mode::Leaders(Stat::Obp);
                         }
                         if ui.button("SLG").clicked() {
-                            mode = Mode::Leaders(Stat::SLG);
+                            mode = Mode::Leaders(Stat::Slg);
                         }
                         ui.end_row();
 

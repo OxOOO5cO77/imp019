@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
+use rand_distr::{Distribution, Gamma, Normal};
 use strum_macros::EnumIter;
 
 use crate::data::Data;
@@ -44,19 +44,19 @@ pub(crate) enum Stat {
     H1b,
     H2b,
     H3b,
-    HR,
-    BB,
-    HBP,
+    Hr,
+    Bb,
+    Hbp,
     O,
     R,
-    RBI,
+    Rbi,
     // calculated
     H,
-    AB,
-    PA,
-    AVG,
-    OBP,
-    SLG,
+    Ab,
+    Pa,
+    Avg,
+    Obp,
+    Slg,
 }
 
 fn calc_avg1000(ab: u32, h: u32) -> u32 {
@@ -114,12 +114,12 @@ impl HistoricalStats {
         let h1b = *self.stats.get(&Stat::H1b).unwrap_or(&0);
         let h2b = *self.stats.get(&Stat::H2b).unwrap_or(&0);
         let h3b = *self.stats.get(&Stat::H3b).unwrap_or(&0);
-        let hr = *self.stats.get(&Stat::HR).unwrap_or(&0);
-        let bb = *self.stats.get(&Stat::BB).unwrap_or(&0);
-        let hbp = *self.stats.get(&Stat::HBP).unwrap_or(&0);
+        let hr = *self.stats.get(&Stat::Hr).unwrap_or(&0);
+        let bb = *self.stats.get(&Stat::Bb).unwrap_or(&0);
+        let hbp = *self.stats.get(&Stat::Hbp).unwrap_or(&0);
         let o = *self.stats.get(&Stat::O).unwrap_or(&0);
         let r = *self.stats.get(&Stat::R).unwrap_or(&0);
-        let rbi = *self.stats.get(&Stat::RBI).unwrap_or(&0);
+        let rbi = *self.stats.get(&Stat::Rbi).unwrap_or(&0);
 
         let h = h1b + h2b + h3b + hr;
         let ab = h + o;
@@ -156,28 +156,49 @@ pub(crate) struct Player {
     pub(crate) historical: Vec<HistoricalStats>,
 }
 
+fn gen_normal(rng: &mut ThreadRng, mean: f64, stddev: f64) -> f64 {
+    Normal::new(mean, stddev).unwrap().sample(rng)
+}
+
+fn gen_gamma(rng: &mut ThreadRng, shape: f64, scale: f64) -> f64 {
+    Gamma::new(shape, scale).unwrap().sample(rng)
+}
+
 impl Player {
     pub(crate) fn new(data: &Data, pos: &Position, rng: &mut ThreadRng) -> Self {
         let name_first = data.names_first.choose_weighted(rng, |o| o.1).unwrap().0.clone();
         let name_last = data.names_last.choose_weighted(rng, |o| o.1).unwrap().0.clone();
 
-        let obp = 235 + rng.gen_range(0..165);
-        let bb = rng.gen_range(100..360);
-        let hbp = rng.gen_range(0..40).max(20) - 10;
-        let hr = rng.gen_range(0..220);
-        let h3b = rng.gen_range(0..40).max(20) - 10;
-        let h2b = rng.gen_range(0..260);
-        let h1b = 1000 - bb - hbp - hr - h3b - h2b;
-        let o = ((1000 * 1000) / obp) - 1000;
+        let target_obp = gen_normal(rng, 0.320, 0.036) * 1000.0;
 
-        let mut expect = Vec::new();
-        expect.push((Stat::H1b, h1b));
-        expect.push((Stat::H2b, h2b));
-        expect.push((Stat::H3b, h3b));
-        expect.push((Stat::HR, hr));
-        expect.push((Stat::BB, bb));
-        expect.push((Stat::HBP, hbp));
-        expect.push((Stat::O, o));
+        let raw_h1b = gen_normal(rng, 96.6, 21.5);
+        let raw_h2b = gen_normal(rng, 0.342, 0.137) * raw_h1b;
+        let raw_h3b = gen_normal(rng, 0.0985, 0.0666) * raw_h2b;
+        let raw_hr = gen_gamma(rng, 1.75, 8.0);
+        let raw_bb = gen_normal(rng, 59.44, 18.71);
+        let raw_hbp = gen_gamma(rng, 1.0, 1.5);
+
+        let obp_total = raw_h1b + raw_h2b + raw_h3b + raw_hr + raw_bb + raw_hbp;
+        let h1b = ((raw_h1b / obp_total) * target_obp) as u32;
+        let h2b = ((raw_h2b / obp_total) * target_obp) as u32;
+        let h3b = ((raw_h3b / obp_total) * target_obp) as u32;
+        let hr = ((raw_hr / obp_total) * target_obp) as u32;
+        let bb = ((raw_bb / obp_total) * target_obp) as u32;
+        let hbp = ((raw_hbp / obp_total) * target_obp) as u32;
+
+        let o = 1000 - target_obp as u32;
+
+        let expect = vec![
+            (Stat::H1b, h1b),
+            (Stat::H2b, h2b),
+            (Stat::H3b, h3b),
+            (Stat::Hr, hr),
+            (Stat::Bb, bb),
+            (Stat::Hbp, hbp),
+            (Stat::O, o),
+        ];
+
+        let age = 17 + gen_gamma(rng, 2.0, 3.0) as u8;
 
         Player {
             pos: *pos,
@@ -185,7 +206,7 @@ impl Player {
             name_last,
             expect,
             stats: vec![],
-            age: 0,
+            age,
             historical: vec![],
         }
     }
@@ -229,18 +250,18 @@ impl Player {
             Stat::H1b => self.get_stats().h1b,
             Stat::H2b => self.get_stats().h2b,
             Stat::H3b => self.get_stats().h3b,
-            Stat::HR => self.get_stats().hr,
-            Stat::BB => self.get_stats().bb,
-            Stat::HBP => self.get_stats().hbp,
+            Stat::Hr => self.get_stats().hr,
+            Stat::Bb => self.get_stats().bb,
+            Stat::Hbp => self.get_stats().hbp,
             Stat::O => self.get_stats().o,
             Stat::R => self.get_stats().r,
-            Stat::RBI => self.get_stats().rbi,
+            Stat::Rbi => self.get_stats().rbi,
             Stat::H => self.get_stats().h,
-            Stat::AB => self.get_stats().ab,
-            Stat::PA => self.get_stats().pa,
-            Stat::AVG => self.get_stats().avg,
-            Stat::OBP => self.get_stats().obp,
-            Stat::SLG => self.get_stats().slg,
+            Stat::Ab => self.get_stats().ab,
+            Stat::Pa => self.get_stats().pa,
+            Stat::Avg => self.get_stats().avg,
+            Stat::Obp => self.get_stats().obp,
+            Stat::Slg => self.get_stats().slg,
         }
     }
 
@@ -261,12 +282,12 @@ impl Player {
                 Stat::H1b => h1b += 1,
                 Stat::H2b => h2b += 1,
                 Stat::H3b => h3b += 1,
-                Stat::HR => hr += 1,
-                Stat::BB => bb += 1,
-                Stat::HBP => hbp += 1,
+                Stat::Hr => hr += 1,
+                Stat::Bb => bb += 1,
+                Stat::Hbp => hbp += 1,
                 Stat::O => o += 1,
                 Stat::R => r += 1,
-                Stat::RBI => rbi += 1,
+                Stat::Rbi => rbi += 1,
                 _ => {}
             }
         }
@@ -274,6 +295,9 @@ impl Player {
         let h = h1b + h2b + h3b + hr;
         let ab = h + o;
         let pa = ab + bb + hbp;
+        let avg = calc_avg1000(ab, h);
+        let obp = calc_obp1000(pa, h, bb, hbp);
+        let slg = calc_slg1000(ab, h1b, h2b, h3b, hr);
 
         Stats {
             h1b,
@@ -288,9 +312,9 @@ impl Player {
             h,
             ab,
             pa,
-            avg: calc_avg1000(ab, h),
-            obp: calc_obp1000(pa, h, bb, hbp),
-            slg: calc_slg1000(ab, h1b, h2b, h3b, hr),
+            avg,
+            obp,
+            slg,
         }
     }
 

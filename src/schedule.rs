@@ -40,10 +40,8 @@ impl Scoreboard {
             }
             self.onbase[1] = self.onbase[0];
         }
-        if amt > 0 {
-            for idx in 0..amt as usize {
-                self.onbase[idx] = None;
-            }
+        for idx in 0..amt as usize {
+            self.onbase[idx] = None;
         }
     }
 
@@ -86,7 +84,7 @@ impl Game {
             away: Scoreboard::new(away),
             inning: Inning {
                 number: 1,
-                half: InningHalf::Top
+                half: InningHalf::Top,
             },
             outs: 0,
         }
@@ -127,16 +125,16 @@ impl Game {
                 Stat::H1b => scoreboard.advance_onbase(player_id, 1),
                 Stat::H2b => scoreboard.advance_onbase(player_id, 2),
                 Stat::H3b => scoreboard.advance_onbase(player_id, 3),
-                Stat::HR => scoreboard.advance_onbase(player_id, 4),
-                Stat::BB => scoreboard.advance_onbase(player_id, 1),
-                Stat::HBP => scoreboard.advance_onbase(player_id, 1),
+                Stat::Hr => scoreboard.advance_onbase(player_id, 4),
+                Stat::Bb => scoreboard.advance_onbase(player_id, 1),
+                Stat::Hbp => scoreboard.advance_onbase(player_id, 1),
                 Stat::O => self.outs += 1,
                 _ => {}
             };
             player.record_stat(result);
 
             for _ in &scoreboard.runs_in {
-                player.record_stat(Stat::RBI);
+                player.record_stat(Stat::Rbi);
             }
 
             for runner_id in &scoreboard.runs_in {
@@ -239,19 +237,19 @@ mod tests {
         assert_eq!(test1.runs_in.len(), 4);
 
         test1.runs_in.clear();
-        test1.advance_onbase(3,3);
-        test1.advance_onbase(2,2);
-        test1.advance_onbase(1,3);
+        test1.advance_onbase(3, 3);
+        test1.advance_onbase(2, 2);
+        test1.advance_onbase(1, 3);
         assert_eq!(test1.onbase, [None, None, None, Some(1)]);
         assert_eq!(test1.runs_in.len(), 2);
 
         test1.runs_in.clear();
-        test1.advance_onbase(1,4);
+        test1.advance_onbase(1, 4);
         assert_eq!(test1.onbase, [None, None, None, None]);
         assert_eq!(test1.runs_in.len(), 2);
 
         test1.runs_in.clear();
-        test1.advance_onbase(1,4);
+        test1.advance_onbase(1, 4);
         assert_eq!(test1.onbase, [None, None, None, None]);
         assert_eq!(test1.runs_in.len(), 1);
     }
