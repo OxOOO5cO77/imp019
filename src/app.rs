@@ -1,10 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use eframe::{egui, epi};
 use eframe::egui::Button;
 use ordinal::Ordinal;
 use rand::rngs::ThreadRng;
-use rand::seq::SliceRandom;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
@@ -24,11 +23,11 @@ enum Mode {
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct Imp019App {
     rng: ThreadRng,
-    pub(crate) players: HashMap<u64, Player>,
-    pub(crate) teams: HashMap<u64, Team>,
-    pub(crate) leagues: Vec<League>,
+    players: HashMap<u64, Player>,
+    teams: HashMap<u64, Team>,
+    leagues: Vec<League>,
     year: u32,
-    pub(crate) disp_league: usize,
+    disp_league: usize,
     disp_mode: Mode,
 }
 
@@ -63,12 +62,8 @@ impl Imp019App {
     }
 
     pub fn new() -> Self {
-        let mut data = Data::new();
-
         let mut rng = rand::thread_rng();
-        data.loc.shuffle(&mut rng);
-        data.nick.shuffle(&mut rng);
-
+        let data = Data::new();
         let year = 2030;
 
         let mut pos_gen = vec![
@@ -92,17 +87,24 @@ impl Imp019App {
         players.reserve(2000);
         for pos in pos_gen {
             for _ in 1..=100 {
-                players.insert(player_id, Player::new(&data, &pos, &mut rng));
+                let name_first = data.choose_name_first(&mut rng);
+                let name_last = data.choose_name_last(&mut rng);
+                players.insert(player_id, Player::new(name_first, name_last, &pos, &mut rng));
                 player_id += 1;
             }
         }
 
         let mut unused_players = players.iter().map(|(k, v)| DraftPlayer { id: *k, pos: v.pos, taken: false }).collect::<Vec<_>>();
 
+        let locs = data.get_locs(&mut HashSet::new(), &mut rng, 60);
+        let nicks = data.get_nicks(&mut HashSet::new(), &mut rng, 60);
+
         let mut teams = HashMap::new();
         teams.reserve(60);
-        for team_id in 1..=60 {
-            let mut team = Team::new(&mut data, year);
+        for team_id in 0..60 {
+            let (abbr, city, state) = locs[team_id].clone();
+            let nick = nicks[team_id].clone();
+            let mut team = Team::new(abbr, city, state, nick, year);
 
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::Catcher));
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::FirstBase));
@@ -114,7 +116,7 @@ impl Imp019App {
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::RightField));
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::DesignatedHitter));
 
-
+            let team_id = (team_id + 1) as u64;
             teams.insert(team_id, team);
         }
 

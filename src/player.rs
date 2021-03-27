@@ -5,8 +5,6 @@ use rand::seq::SliceRandom;
 use rand_distr::{Distribution, Gamma, Normal};
 use strum_macros::EnumIter;
 
-use crate::data::Data;
-
 #[derive(Copy, Clone, Debug, PartialEq, EnumIter)]
 pub(crate) enum Position {
     Pitcher,
@@ -59,28 +57,20 @@ pub(crate) enum Stat {
     Slg,
 }
 
+fn div1000_or_0(n: u32, d: u32 ) -> u32 {
+    if d > 0 { (n * 1000) / d } else { d }
+}
+
 fn calc_avg1000(ab: u32, h: u32) -> u32 {
-    if ab > 0 {
-        h * 1000 / ab
-    } else {
-        0
-    }
+    div1000_or_0(h, ab )
 }
 
 fn calc_obp1000(pa: u32, h: u32, bb: u32, hbp: u32) -> u32 {
-    if pa > 0 {
-        ((h + bb + hbp) * 1000) / pa
-    } else {
-        0
-    }
+    div1000_or_0(h + bb + hbp, pa)
 }
 
 fn calc_slg1000(ab: u32, h1b: u32, h2b: u32, h3b: u32, hr: u32) -> u32 {
-    if ab > 0 {
-        ((h1b + (2 * h2b) + (3 * h3b) + (4 * hr)) * 1000) / ab
-    } else {
-        0
-    }
+    div1000_or_0(h1b + (2 * h2b) + (3 * h3b) + (4 * hr), ab)
 }
 
 pub(crate) struct Stats {
@@ -106,20 +96,20 @@ pub(crate) struct HistoricalStats {
     pub(crate) year: u32,
     pub(crate) league: u32,
     pub(crate) team: u64,
-    pub(crate) stats: HashMap<Stat, u32>,
+    pub(crate) batting_stats: HashMap<Stat, u32>,
 }
 
 impl HistoricalStats {
     pub(crate) fn get_stats(&self) -> Stats {
-        let h1b = *self.stats.get(&Stat::H1b).unwrap_or(&0);
-        let h2b = *self.stats.get(&Stat::H2b).unwrap_or(&0);
-        let h3b = *self.stats.get(&Stat::H3b).unwrap_or(&0);
-        let hr = *self.stats.get(&Stat::Hr).unwrap_or(&0);
-        let bb = *self.stats.get(&Stat::Bb).unwrap_or(&0);
-        let hbp = *self.stats.get(&Stat::Hbp).unwrap_or(&0);
-        let o = *self.stats.get(&Stat::O).unwrap_or(&0);
-        let r = *self.stats.get(&Stat::R).unwrap_or(&0);
-        let rbi = *self.stats.get(&Stat::Rbi).unwrap_or(&0);
+        let h1b = *self.batting_stats.get(&Stat::H1b).unwrap_or(&0);
+        let h2b = *self.batting_stats.get(&Stat::H2b).unwrap_or(&0);
+        let h3b = *self.batting_stats.get(&Stat::H3b).unwrap_or(&0);
+        let hr = *self.batting_stats.get(&Stat::Hr).unwrap_or(&0);
+        let bb = *self.batting_stats.get(&Stat::Bb).unwrap_or(&0);
+        let hbp = *self.batting_stats.get(&Stat::Hbp).unwrap_or(&0);
+        let o = *self.batting_stats.get(&Stat::O).unwrap_or(&0);
+        let r = *self.batting_stats.get(&Stat::R).unwrap_or(&0);
+        let rbi = *self.batting_stats.get(&Stat::Rbi).unwrap_or(&0);
 
         let h = h1b + h2b + h3b + hr;
         let ab = h + o;
@@ -165,10 +155,7 @@ fn gen_gamma(rng: &mut ThreadRng, shape: f64, scale: f64) -> f64 {
 }
 
 impl Player {
-    pub(crate) fn new(data: &Data, pos: &Position, rng: &mut ThreadRng) -> Self {
-        let name_first = data.names_first.choose_weighted(rng, |o| o.1).unwrap().0.clone();
-        let name_last = data.names_last.choose_weighted(rng, |o| o.1).unwrap().0.clone();
-
+    pub(crate) fn new(name_first: String, name_last: String, pos: &Position, rng: &mut ThreadRng) -> Self {
         let target_obp = gen_normal(rng, 0.320, 0.036) * 1000.0;
 
         let raw_h1b = gen_normal(rng, 96.6, 21.5);
@@ -176,7 +163,7 @@ impl Player {
         let raw_h3b = gen_normal(rng, 0.0985, 0.0666) * raw_h2b;
         let raw_hr = gen_gamma(rng, 1.75, 8.0);
         let raw_bb = gen_normal(rng, 59.44, 18.71);
-        let raw_hbp = gen_gamma(rng, 1.0, 1.5);
+        let raw_hbp = gen_normal(rng, 4.0, 4.0);
 
         let obp_total = raw_h1b + raw_h2b + raw_h3b + raw_hr + raw_bb + raw_hbp;
         let h1b = ((raw_h1b / obp_total) * target_obp) as u32;
@@ -201,12 +188,12 @@ impl Player {
         let age = 17 + gen_gamma(rng, 2.0, 3.0) as u8;
 
         Player {
-            pos: *pos,
             name_first,
             name_last,
+            age,
+            pos: *pos,
             expect,
             stats: vec![],
-            age,
             historical: vec![],
         }
     }
@@ -231,7 +218,7 @@ impl Player {
             ..HistoricalStats::default()
         };
         for stat in &self.stats {
-            let val = historical.stats.entry(*stat).or_insert(0);
+            let val = historical.batting_stats.entry(*stat).or_insert(0);
             *val += 1;
         }
         self.historical.push(historical);

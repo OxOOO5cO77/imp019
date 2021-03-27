@@ -1,8 +1,13 @@
-pub struct Data {
-    pub(crate) loc: Vec<String>,
-    pub(crate) nick: Vec<String>,
-    pub(crate) names_first: Vec<(String, u32)>,
-    pub(crate) names_last: Vec<(String, u32)>,
+use std::collections::HashSet;
+
+use rand::rngs::ThreadRng;
+use rand::seq::SliceRandom;
+
+pub(crate) struct Data {
+    loc: Vec<String>,
+    nick: Vec<String>,
+    names_first: Vec<(String, u32)>,
+    names_last: Vec<(String, u32)>,
 }
 
 impl Default for Data {
@@ -39,19 +44,31 @@ impl Data {
         }
     }
 
-    fn pull(vec: &mut Vec<String>) -> String {
-        if let Some(result) = vec.pop() {
-            result
-        } else {
-            "".into()
+    pub(crate) fn get_locs(&self, existing: &mut HashSet<(String, String, String)>, rng: &mut ThreadRng, count: usize) -> Vec<(String, String, String)> {
+        while existing.len() != count {
+            let mut loc = self.loc.choose(rng).unwrap().split(',');
+            let abbr = loc.next().unwrap_or("").to_owned();
+            let city = loc.next().unwrap_or("").to_owned();
+            let state = format!("{}-{}", loc.next().unwrap_or(""), loc.next().unwrap_or(""));
+
+            existing.insert((abbr, city, state));
         }
+        existing.iter().cloned().collect()
     }
 
-    pub(crate) fn pull_loc(&mut self) -> String {
-        Data::pull(&mut self.loc)
+    pub(crate) fn get_nicks(&self, nicks: &mut HashSet<String>, rng: &mut ThreadRng, count: usize) -> Vec<String> {
+        while nicks.len() != count {
+            nicks.insert(self.nick.choose(rng).unwrap().to_owned());
+        }
+        nicks.iter().cloned().collect()
     }
-    pub(crate) fn pull_nick(&mut self) -> String {
-        Data::pull(&mut self.nick)
+
+    pub(crate) fn choose_name_first(&self, rng: &mut ThreadRng) -> String {
+        self.names_first.choose_weighted(rng, |o| o.1).unwrap().0.clone()
+    }
+
+    pub(crate) fn choose_name_last(&self, rng: &mut ThreadRng) -> String {
+        self.names_last.choose_weighted(rng, |o| o.1).unwrap().0.clone()
     }
 }
 

@@ -14,7 +14,7 @@ pub(crate) struct Scoreboard {
     pub(crate) r: u8,
     //    pub(crate) h: u8,
 //    pub(crate) e: u8,
-    pub(crate) ab: u8,
+    ab: u8,
 
 }
 
@@ -97,6 +97,14 @@ impl Game {
     fn is_away(&self) -> bool {
         self.inning.half == InningHalf::Top || self.inning.half == InningHalf::Middle
     }
+
+    // fn matchup_morey_z(batter: f64, pitcher: f64, league: f64) -> f64 {
+    //     let sqrt_league = (league * (1.0 - league)).sqrt();
+    //     let top_left = (batter - league) / sqrt_league;
+    //     let top_right = (pitcher - league) / sqrt_league;
+    //     let left = (top_left + top_right) / 2.0f64.sqrt();
+    //     (left * sqrt_league) + league
+    // }
 
     pub(crate) fn sim(&mut self, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, rng: &mut ThreadRng) {
         self.inning.number = 1;
