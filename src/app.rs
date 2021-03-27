@@ -9,13 +9,14 @@ use crate::data::Data;
 use crate::league::{end_of_season, League};
 use crate::player::{Player, Position, Stat};
 use crate::team::Team;
+use crate::app::Mode::Leaders;
 
 #[derive(Copy, Clone)]
 enum Mode {
     Schedule,
     Standings,
     Team(u64),
-    Player(u64, u64),
+    Player(Option<u64>, u64),
     Leaders(Stat),
 }
 
@@ -344,7 +345,7 @@ impl epi::App for Imp019App {
                                         let stats = player.get_stats();
 
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(*id, *player_id);
+                                            mode = Mode::Player(Some(*id), *player_id);
                                         }
                                         ui.label(player.display_position());
                                         ui.label(format!("{}", stats.pa));
@@ -372,10 +373,23 @@ impl epi::App for Imp019App {
                 }
                 Mode::Player(team_id, player_id) => {
                     let mut mode = Mode::Player(*team_id, *player_id);
-                    if ui.button("Close").clicked() {
-                        mode = Mode::Team(*team_id);
-                    }
 
+                    let player = self.players.get(player_id).unwrap();
+
+                    if ui.button("Close").clicked() {
+                        if let Some(team_id) = team_id {
+                            mode = Mode::Team(*team_id);
+                        } else {
+                            mode = Leaders(Stat::Hr);
+                        }
+                    }
+                    ui.label(format!("Name: {}",player.fullname()));
+                    ui.label(format!("Age: {}",player.age));
+                    ui.label(format!("Pos: {}",player.pos.to_str()));
+                    ui.label(format!("Bats: {}",player.bats.to_str()));
+                    ui.label(format!("Throws: {}",player.throws.to_str()));
+
+                    ui.heading("History");
                     egui::Grid::new("history").striped(true).show(ui, |ui| {
                         ui.label("Year");
                         ui.label("League");
@@ -395,7 +409,6 @@ impl epi::App for Imp019App {
                         ui.label("SLG");
                         ui.end_row();
 
-                        let player = self.players.get(player_id).unwrap();
                         for history in &player.historical {
                             let stats = history.get_stats();
 
@@ -474,7 +487,7 @@ impl epi::App for Imp019App {
                         for team_id in league.teams.iter() {
                             let team = &self.teams.get(team_id).unwrap();
                             for player in team.players.iter() {
-                                all_players.push((&team.abbr, self.players.get(player).unwrap()));
+                                all_players.push((&team.abbr, self.players.get(player).unwrap(), player));
                             }
                         }
 
@@ -485,7 +498,9 @@ impl epi::App for Imp019App {
                             let player = ap.1;
 
                             ui.label(format!("{}", rank + 1));
-                            ui.label(player.fullname());
+                            if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
+                                mode = Mode::Player(None, *ap.2);
+                            }
                             ui.label(ap.0);
 
 

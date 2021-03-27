@@ -20,7 +20,7 @@ pub(crate) enum Position {
 }
 
 impl Position {
-    fn to_str(&self) -> &str {
+    pub(crate) fn to_str(&self) -> &str {
         match self {
             Position::Pitcher => "P",
             Position::Catcher => "C",
@@ -32,6 +32,23 @@ impl Position {
             Position::CenterField => "CF",
             Position::RightField => "RF",
             Position::DesignatedHitter => "DH",
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub(crate) enum Handedness {
+    Left,
+    Right,
+    Switch,
+}
+
+impl Handedness {
+    pub(crate) fn to_str(&self) -> &str {
+        match self {
+            Handedness::Left => "L",
+            Handedness::Right => "R",
+            Handedness::Switch => "S",
         }
     }
 }
@@ -141,6 +158,8 @@ pub(crate) struct Player {
     name_last: String,
     pub(crate) age: u8,
     pub(crate) pos: Position,
+    pub(crate) bats: Handedness,
+    pub(crate) throws: Handedness,
     expect: Vec<(Stat, u32)>,
     stats: Vec<Stat>,
     pub(crate) historical: Vec<HistoricalStats>,
@@ -187,11 +206,27 @@ impl Player {
 
         let age = 17 + gen_gamma(rng, 2.0, 3.0) as u8;
 
+        let batting_hand = vec![
+            (Handedness::Right,54),
+            (Handedness::Left,33),
+            (Handedness::Switch,13),
+        ];
+        let bat_hand = &batting_hand.choose_weighted(rng,|o| o.1).unwrap().0;
+
+        let pitching_hand = vec![
+            (Handedness::Right,67),
+            (Handedness::Left,33),
+        ];
+
+        let pitch_hand = &pitching_hand.choose_weighted(rng,|o| o.1).unwrap().0;
+
         Player {
             name_first,
             name_last,
             age,
             pos: *pos,
+            bats: *bat_hand,
+            throws: *pitch_hand,
             expect,
             stats: vec![],
             historical: vec![],
