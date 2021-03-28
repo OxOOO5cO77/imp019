@@ -1735,7 +1735,7 @@ Rogan,88
 Varun,88
 Xavior,88
 Yerik,88
-Abdulrahman,87
+Abdul Rahman,87
 Angus,87
 Benedict,87
 Brooklyn,87
@@ -2548,7 +2548,7 @@ Trystin,49
 Willard,49
 Yuvraj,49
 Zymir,49
-Abdulaziz,48
+Abdul Aziz,48
 Armin,48
 Avan,48
 Cordae,48
@@ -5040,7 +5040,7 @@ Zoe,19
 Zyquan,19
 Aadin,18
 Abdifatah,18
-Abdulmalik,18
+Abdul Malik,18
 Abubakr,18
 Ajax,18
 Akio,18
@@ -5935,7 +5935,7 @@ Mckoy,15
 MD,15
 Menashe,15
 Messi,15
-Michaelanthony,15
+Michael Anthony,15
 Mujtaba,15
 Munir,15
 Naasir,15
@@ -7084,7 +7084,7 @@ Zyad,12
 Zyrell,12
 Aadan,11
 Aadil,11
-Abdulkarim,11
+Abdul Karim,11
 Adarian,11
 Adonnis,11
 Ahaan,11
@@ -8137,9 +8137,9 @@ Aashir,9
 Abdalrahman,9
 Abdelaziz,9
 Abdirizak,9
-Abdulkadir,9
+Abdul Kadir,9
 Abdulla,9
-Abdulwahab,9
+Abdul Wahab,9
 Abem,9
 Abenezer,9
 Abigail,9
@@ -8731,7 +8731,7 @@ Tyrei,9
 Ulrich,9
 Vanden,9
 Venancio,9
-Victormanuel,9
+Victor Manuel,9
 Vikas,9
 Vinayak,9
 Viraaj,9
@@ -8795,7 +8795,7 @@ Aasim,8
 Aaven,8
 Abdikadir,8
 Abdimalik,8
-Abdulkareem,8
+Abdul Kareem,8
 Abhi,8
 Abou,8
 Absalom,8
@@ -9688,9 +9688,9 @@ Aasir,7
 Abas,7
 Abdelkarim,7
 Abdou,7
-Abdulahad,7
+Abdul Ahad,7
 Abdulai,7
-Abdulhamid,7
+Abdul Hamid,7
 Abukar,7
 Aceyn,7
 Ada,7
@@ -10164,7 +10164,7 @@ Jimin,7
 Jivan,7
 Jlyn,7
 Jo,7
-Joaopedro,7
+Joao Pedro,7
 Joe Nathan,7
 Johathan,7
 Johnta,7
@@ -11820,7 +11820,7 @@ Piers,6
 Placido,6
 Prabhjot,6
 Prajwal,6
-Princejohn,6
+Prince John,6
 Princton,6
 Pritam,6
 Prophet,6
@@ -11976,7 +11976,7 @@ Siale,6
 Sian,6
 Sidak,6
 Silver,6
-Siranthony,6
+Sir Anthony,6
 Skyelar,6
 Skylon,6
 Slaton,6
@@ -12005,7 +12005,7 @@ Suvir,6
 Svanik,6
 Swaraj,6
 Sye,6
-Syedmuhammad,6
+Syed Muhammad,6
 Syier,6
 Symeon,6
 Syree,6
@@ -12238,11 +12238,11 @@ Abdihakim,5
 Abdilahi,5
 Abdon,5
 Abdulah,5
-Abdulhameed,5
-Abdulmalek,5
-Abdulraheem,5
-Abdulrahim,5
-Abdulwadud,5
+Abdul Hameed,5
+Abdul Malek,5
+Abdul Raheem,5
+Abdul Rahim,5
+Abdul Wadud,5
 Abednego,5
 Aberham,5
 Abian,5
@@ -12279,7 +12279,7 @@ Ahmani,5
 Ahmauri,5
 Ahmeer,5
 Ahmond,5
-Aidenjoseph,5
+Aiden Joseph,5
 Ainsley,5
 Airis,5
 Airyn,5
@@ -12576,7 +12576,7 @@ Chinemerem,5
 Chisum,5
 Christepher,5
 Christof,5
-Christopherjame,5
+Christopher James,5
 Christy,5
 Chuck,5
 Chuckie,5
@@ -12790,7 +12790,7 @@ Dusten,5
 Duy,5
 Dvon,5
 Dyan,5
-Dylanjacob,5
+Dylan Jacob,5
 Dylian,5
 Dymir,5
 Earle,5
@@ -12851,7 +12851,7 @@ Estefan,5
 Estephan,5
 Etash,5
 Eternal,5
-Ethanmichael,5
+Ethan Michael,5
 Eulises,5
 Eutimio,5
 Evens,5
@@ -13128,8 +13128,8 @@ Jaxom,5
 Jayc,5
 Jaycie,5
 Jaydel,5
-Jaydenalexander,5
-Jaydenmichael,5
+Jayden Alexander,5
+Jayden Michael,5
 Jaydun,5
 Jaydynn,5
 Jayel,5
@@ -13391,9 +13391,9 @@ Kilen,5
 Kilik,5
 Kilo,5
 Kinan,5
-Kingjames,5
+King James,5
 Kingslee,5
-Kingsolomon,5
+King Solomon,5
 Kino,5
 Kinzer,5
 Kionte,5
@@ -13595,11 +13595,11 @@ Merrell,5
 Mete,5
 Mian,5
 Micael,5
-Micahjoseph,5
+Micah Joseph,5
 Micaih,5
 Mical,5
 Micco,5
-Michaeljoseph,5
+Michael Joseph,5
 Mickale,5
 Mico,5
 Mihailo,5
@@ -14132,7 +14132,7 @@ Vaun,5
 Verdell,5
 Veron,5
 Vicent,5
-Victorhugo,5
+Victor Hugo,5
 Vidit,5
 Vidyuth,5
 Vigo,5
