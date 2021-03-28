@@ -16,6 +16,7 @@ rand_distr = "0.4.0"
 serde = { version = "1.0.125", features = ["derive"], optional = true }
 strum = "0.20.0"
 strum_macros = "0.20.1"
+lazy_static = "1.4.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

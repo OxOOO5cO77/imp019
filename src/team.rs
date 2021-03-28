@@ -37,6 +37,7 @@ pub(crate) struct Team {
     state: String,
     nickname: String,
     pub(crate) players: Vec<u64>,
+    pub(crate) rotation: [u64; 5],
     pub(crate) results: Results,
     pub(crate) history: History,
 }
@@ -50,6 +51,7 @@ impl Team {
             state,
             nickname,
             players: Vec::new(),
+            rotation: [0,0,0,0,0],
             results: Results::default(),
             history: History {
                 founded: year,

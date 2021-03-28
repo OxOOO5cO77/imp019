@@ -9,15 +9,15 @@ use crate::data::Data;
 use crate::league::{end_of_season, League};
 use crate::player::{Player, Position, Stat};
 use crate::team::Team;
-use crate::app::Mode::Leaders;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum Mode {
     Schedule,
     Standings,
     Team(u64),
     Player(Option<u64>, u64),
-    Leaders(Stat),
+    BatLeaders(Stat, bool),
+    PitLeaders(Stat, bool),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -117,6 +117,12 @@ impl Imp019App {
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::RightField));
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::DesignatedHitter));
 
+            for rot in 0..5 {
+                let p = Imp019App::pick_player(&mut unused_players, Position::Pitcher);
+                team.rotation[rot] = p;
+                team.players.push(p);
+            }
+
             let team_id = (team_id + 1) as u64;
             teams.insert(team_id, team);
         }
@@ -155,6 +161,16 @@ fn as_league(value: Option<u32>) -> String {
     } else {
         "---".to_string()
     }
+}
+
+fn select_bat_stat(new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
+    let flip = if new_stat == cur_stat { !reverse } else { default };
+    Mode::BatLeaders(new_stat, flip)
+}
+
+fn select_pit_stat(new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
+    let flip = if new_stat == cur_stat { !reverse } else { default };
+    Mode::PitLeaders(new_stat, flip)
 }
 
 impl epi::App for Imp019App {
@@ -202,8 +218,12 @@ impl epi::App for Imp019App {
                         self.disp_mode = Mode::Standings;
                         self.disp_league = cnt;
                     }
-                    if ui.button("Lead").clicked() {
-                        self.disp_mode = Mode::Leaders(Stat::Hr);
+                    if ui.button("Bat").clicked() {
+                        self.disp_mode = Mode::BatLeaders(Stat::Bhr, true);
+                        self.disp_league = cnt;
+                    }
+                    if ui.button("Pit").clicked() {
+                        self.disp_mode = Mode::PitLeaders(Stat::Pera, false);
                         self.disp_league = cnt;
                     }
                 });
@@ -320,8 +340,8 @@ impl epi::App for Imp019App {
 
                         if !team.players.is_empty() {
                             ui.vertical(|ui| {
-                                ui.heading("Players");
-                                egui::Grid::new("players").striped(true).show(ui, |ui| {
+                                ui.heading("Batting");
+                                egui::Grid::new("batting").striped(true).show(ui, |ui| {
                                     ui.label("Name");
                                     ui.label("Pos");
                                     ui.label("PA");
@@ -342,25 +362,77 @@ impl epi::App for Imp019App {
 
                                     for player_id in &team.players {
                                         let player = self.players.get(player_id).unwrap();
+                                        if player.pos == Position::Pitcher {
+                                            continue
+                                        }
                                         let stats = player.get_stats();
 
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
                                             mode = Mode::Player(Some(*id), *player_id);
                                         }
-                                        ui.label(player.display_position());
-                                        ui.label(format!("{}", stats.pa));
-                                        ui.label(format!("{}", stats.ab));
-                                        ui.label(format!("{}", stats.h));
-                                        ui.label(format!("{}", stats.h2b));
-                                        ui.label(format!("{}", stats.h3b));
-                                        ui.label(format!("{}", stats.hr));
-                                        ui.label(format!("{}", stats.bb));
-                                        ui.label(format!("{}", stats.hbp));
-                                        ui.label(format!("{}", stats.r));
-                                        ui.label(format!("{}", stats.rbi));
-                                        ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
-                                        ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
-                                        ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
+                                        ui.label(player.pos.to_str());
+                                        ui.label(format!("{}", stats.b_pa));
+                                        ui.label(format!("{}", stats.b_ab));
+                                        ui.label(format!("{}", stats.b_h));
+                                        ui.label(format!("{}", stats.b_2b));
+                                        ui.label(format!("{}", stats.b_3b));
+                                        ui.label(format!("{}", stats.b_hr));
+                                        ui.label(format!("{}", stats.b_bb));
+                                        ui.label(format!("{}", stats.b_hbp));
+                                        ui.label(format!("{}", stats.b_r));
+                                        ui.label(format!("{}", stats.b_rbi));
+                                        ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
+                                        ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
+                                        ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
+                                        ui.end_row();
+                                    }
+                                });
+                                ui.heading("Pitching");
+                                egui::Grid::new("pitching").striped(true).show(ui, |ui| {
+                                    ui.label("Name");
+                                    ui.label("IP");
+                                    ui.label("BF");
+                                    ui.label("H");
+                                    ui.label("2B");
+                                    ui.label("3B");
+                                    ui.label("HR");
+                                    ui.label("BB");
+                                    ui.label("HBP");
+                                    ui.label("R");
+                                    ui.label("ER");
+                                    ui.label("ERA");
+                                    ui.label("WHIP");
+                                    ui.label("AVG");
+                                    ui.label("OBP");
+                                    ui.label("SLG");
+                                    ui.end_row();
+
+
+                                    for player_id in &team.players {
+                                        let player = self.players.get(player_id).unwrap();
+                                        if player.pos != Position::Pitcher {
+                                            continue
+                                        }
+                                        let stats = player.get_stats();
+
+                                        if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
+                                            mode = Mode::Player(Some(*id), *player_id);
+                                        }
+                                        ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
+                                        ui.label(format!("{}", stats.p_bf));
+                                        ui.label(format!("{}", stats.p_h));
+                                        ui.label(format!("{}", stats.p_2b));
+                                        ui.label(format!("{}", stats.p_3b));
+                                        ui.label(format!("{}", stats.p_hr));
+                                        ui.label(format!("{}", stats.p_bb));
+                                        ui.label(format!("{}", stats.p_hbp));
+                                        ui.label(format!("{}", stats.p_r));
+                                        ui.label(format!("{}", stats.p_er));
+                                        ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
+                                        ui.label(format!("{}.{:03}", stats.p_whip / 1000, stats.p_whip % 1000));
+                                        ui.label(format!("{}.{:03}", stats.p_avg / 1000, stats.p_avg % 1000));
+                                        ui.label(format!("{}.{:03}", stats.p_obp / 1000, stats.p_obp % 1000));
+                                        ui.label(format!("{}.{:03}", stats.p_slg / 1000, stats.p_slg % 1000));
                                         ui.end_row();
                                     }
                                 });
@@ -379,15 +451,17 @@ impl epi::App for Imp019App {
                     if ui.button("Close").clicked() {
                         if let Some(team_id) = team_id {
                             mode = Mode::Team(*team_id);
+                        } else if player.pos == Position::Pitcher {
+                            mode = Mode::PitLeaders(Stat::Pera, false);
                         } else {
-                            mode = Leaders(Stat::Hr);
+                            mode = Mode::BatLeaders(Stat::Bhr, true);
                         }
                     }
-                    ui.label(format!("Name: {}",player.fullname()));
-                    ui.label(format!("Age: {}",player.age));
-                    ui.label(format!("Pos: {}",player.pos.to_str()));
-                    ui.label(format!("Bats: {}",player.bats.to_str()));
-                    ui.label(format!("Throws: {}",player.throws.to_str()));
+                    ui.label(format!("Name: {}", player.fullname()));
+                    ui.label(format!("Age: {}", player.age));
+                    ui.label(format!("Pos: {}", player.pos.to_str()));
+                    ui.label(format!("Bats: {}", player.bats.to_str()));
+                    ui.label(format!("Throws: {}", player.throws.to_str()));
 
                     ui.heading("History");
                     egui::Grid::new("history").striped(true).show(ui, |ui| {
@@ -415,70 +489,70 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", history.year));
                             ui.label(format!("{}", history.league));
                             ui.label(format!("{}", history.team));
-                            ui.label(format!("{}", stats.pa));
-                            ui.label(format!("{}", stats.ab));
-                            ui.label(format!("{}", stats.h));
-                            ui.label(format!("{}", stats.h2b));
-                            ui.label(format!("{}", stats.h3b));
-                            ui.label(format!("{}", stats.hr));
-                            ui.label(format!("{}", stats.bb));
-                            ui.label(format!("{}", stats.hbp));
-                            ui.label(format!("{}", stats.r));
-                            ui.label(format!("{}", stats.rbi));
-                            ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
-                            ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
-                            ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
+                            ui.label(format!("{}", stats.b_pa));
+                            ui.label(format!("{}", stats.b_ab));
+                            ui.label(format!("{}", stats.b_h));
+                            ui.label(format!("{}", stats.b_2b));
+                            ui.label(format!("{}", stats.b_3b));
+                            ui.label(format!("{}", stats.b_hr));
+                            ui.label(format!("{}", stats.b_bb));
+                            ui.label(format!("{}", stats.b_hbp));
+                            ui.label(format!("{}", stats.b_r));
+                            ui.label(format!("{}", stats.b_rbi));
+                            ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
+                            ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
+                            ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
                             ui.end_row();
                         }
                     });
 
                     mode
                 }
-                Mode::Leaders(result) => {
-                    let mut mode = Mode::Leaders(*result);
+                Mode::BatLeaders(result, reverse) => {
+                    let mut mode = Mode::BatLeaders(*result, *reverse);
 
-                    egui::Grid::new("leaders").striped(true).show(ui, |ui| {
+                    egui::Grid::new("bleaders").striped(true).show(ui, |ui| {
                         ui.label("#");
                         ui.label("Name");
                         ui.label("Team");
                         if ui.button("PA").clicked() {
-                            mode = Mode::Leaders(Stat::Pa);
+                            mode = select_bat_stat(Stat::Bpa, *result, *reverse, true);
                         }
                         if ui.button("AB").clicked() {
-                            mode = Mode::Leaders(Stat::Ab);
+                            mode = select_bat_stat(Stat::Bab, *result, *reverse, true);
                         }
                         if ui.button("H").clicked() {
-                            mode = Mode::Leaders(Stat::H);
+                            mode = select_bat_stat(Stat::Bh, *result, *reverse, true);
                         }
                         if ui.button("2B").clicked() {
-                            mode = Mode::Leaders(Stat::H2b);
+                            mode = select_bat_stat(Stat::B2b, *result, *reverse, true);
                         }
                         if ui.button("3B").clicked() {
-                            mode = Mode::Leaders(Stat::H3b);
+                            mode = select_bat_stat(Stat::B3b, *result, *reverse, true);
                         }
                         if ui.button("HR").clicked() {
-                            mode = Mode::Leaders(Stat::Hr);
+                            mode = select_bat_stat(Stat::Bhr, *result, *reverse, true);
                         }
                         if ui.button("BB").clicked() {
-                            mode = Mode::Leaders(Stat::Bb);
+                            mode = select_bat_stat(Stat::Bbb, *result, *reverse, true);
                         }
                         if ui.button("HBP").clicked() {
-                            mode = Mode::Leaders(Stat::Hbp);
+                            mode = select_bat_stat(Stat::Bhbp, *result, *reverse, true);
                         }
                         if ui.button("R").clicked() {
-                            mode = Mode::Leaders(Stat::R);
+                            mode = select_bat_stat(Stat::Br, *result, *reverse, true);
                         }
                         if ui.button("RBI").clicked() {
-                            mode = Mode::Leaders(Stat::Rbi);
+                            mode = select_bat_stat(Stat::Brbi, *result, *reverse, true);
                         }
                         if ui.button("AVG").clicked() {
-                            mode = Mode::Leaders(Stat::Avg);
+                            mode = select_bat_stat(Stat::Bavg, *result, *reverse, true);
                         }
                         if ui.button("OBP").clicked() {
-                            mode = Mode::Leaders(Stat::Obp);
+                            mode = select_bat_stat(Stat::Bobp, *result, *reverse, true);
                         }
                         if ui.button("SLG").clicked() {
-                            mode = Mode::Leaders(Stat::Slg);
+                            mode = select_bat_stat(Stat::Bslg, *result, *reverse, true);
                         }
                         ui.end_row();
 
@@ -486,39 +560,148 @@ impl epi::App for Imp019App {
 
                         for team_id in league.teams.iter() {
                             let team = &self.teams.get(team_id).unwrap();
-                            for player in team.players.iter() {
-                                all_players.push((&team.abbr, self.players.get(player).unwrap(), player));
+                            for player_id in team.players.iter() {
+                                let player = self.players.get(player_id).unwrap();
+                                if player.pos != Position::Pitcher {
+                                    all_players.push((&team.abbr, player, player.get_stats(), player_id));
+                                }
                             }
                         }
 
-                        all_players.sort_by_key(|o| o.1.get_stat(*result));
-                        all_players.reverse();
+                        all_players.sort_by_key(|o| o.2.get_stat(*result));
+                        if *reverse {
+                            all_players.reverse()
+                        };
 
                         for (rank, ap) in all_players[0..30].iter().enumerate() {
                             let player = ap.1;
 
                             ui.label(format!("{}", rank + 1));
                             if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
-                                mode = Mode::Player(None, *ap.2);
+                                mode = Mode::Player(None, *ap.3);
                             }
                             ui.label(ap.0);
 
 
-                            let stats = player.get_stats();
+                            let stats = &ap.2;
 
-                            ui.label(format!("{}", stats.pa));
-                            ui.label(format!("{}", stats.ab));
-                            ui.label(format!("{}", stats.h));
-                            ui.label(format!("{}", stats.h2b));
-                            ui.label(format!("{}", stats.h3b));
-                            ui.label(format!("{}", stats.hr));
-                            ui.label(format!("{}", stats.bb));
-                            ui.label(format!("{}", stats.hbp));
-                            ui.label(format!("{}", stats.r));
-                            ui.label(format!("{}", stats.rbi));
-                            ui.label(format!("{}.{:03}", stats.avg / 1000, stats.avg % 1000));
-                            ui.label(format!("{}.{:03}", stats.obp / 1000, stats.obp % 1000));
-                            ui.label(format!("{}.{:03}", stats.slg / 1000, stats.slg % 1000));
+                            ui.label(format!("{}", stats.b_pa));
+                            ui.label(format!("{}", stats.b_ab));
+                            ui.label(format!("{}", stats.b_h));
+                            ui.label(format!("{}", stats.b_2b));
+                            ui.label(format!("{}", stats.b_3b));
+                            ui.label(format!("{}", stats.b_hr));
+                            ui.label(format!("{}", stats.b_bb));
+                            ui.label(format!("{}", stats.b_hbp));
+                            ui.label(format!("{}", stats.b_r));
+                            ui.label(format!("{}", stats.b_rbi));
+                            ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
+                            ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
+                            ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
+                            ui.end_row();
+                        }
+                    });
+
+                    mode
+                }
+                Mode::PitLeaders(result, reverse) => {
+                    let mut mode = Mode::PitLeaders(*result, *reverse);
+
+                    egui::Grid::new("pleaders").striped(true).show(ui, |ui| {
+                        ui.label("#");
+                        ui.label("Name");
+                        ui.label("Team");
+                        if ui.button("IP").clicked() {
+                            mode = select_pit_stat(Stat::Po, *result, *reverse, true);
+                        }
+                        if ui.button("BF").clicked() {
+                            mode = select_pit_stat(Stat::Pbf, *result, *reverse, true);
+                        }
+                        if ui.button("H").clicked() {
+                            mode = select_pit_stat(Stat::Ph, *result, *reverse, true);
+                        }
+                        if ui.button("2B").clicked() {
+                            mode = select_pit_stat(Stat::P2b, *result, *reverse, true);
+                        }
+                        if ui.button("3B").clicked() {
+                            mode = select_pit_stat(Stat::P3b, *result, *reverse, true);
+                        }
+                        if ui.button("HR").clicked() {
+                            mode = select_pit_stat(Stat::Phr, *result, *reverse, true);
+                        }
+                        if ui.button("BB").clicked() {
+                            mode = select_pit_stat(Stat::Pbb, *result, *reverse, true);
+                        }
+                        if ui.button("HBP").clicked() {
+                            mode = select_pit_stat(Stat::Phbp, *result, *reverse, true);
+                        }
+                        if ui.button("R").clicked() {
+                            mode = select_pit_stat(Stat::Pr, *result, *reverse, true);
+                        }
+                        if ui.button("ER").clicked() {
+                            mode = select_pit_stat(Stat::Per, *result, *reverse, true);
+                        }
+                        if ui.button("ERA").clicked() {
+                            mode = select_pit_stat(Stat::Pera, *result, *reverse, false);
+                        }
+                        if ui.button("WHIP").clicked() {
+                            mode = select_pit_stat(Stat::Pwhip, *result, *reverse, false);
+                        }
+                        if ui.button("AVG").clicked() {
+                            mode = select_pit_stat(Stat::Pavg, *result, *reverse, false);
+                        }
+                        if ui.button("OBP").clicked() {
+                            mode = select_pit_stat(Stat::Pobp, *result, *reverse, false);
+                        }
+                        if ui.button("SLG").clicked() {
+                            mode = select_pit_stat(Stat::Pslg, *result, *reverse, false);
+                        }
+                        ui.end_row();
+
+                        let mut all_players = Vec::new();
+
+                        for team_id in league.teams.iter() {
+                            let team = &self.teams.get(team_id).unwrap();
+                            for player_id in team.players.iter() {
+                                let player = self.players.get(player_id).unwrap();
+                                if player.pos == Position::Pitcher {
+                                    all_players.push((&team.abbr, player, player.get_stats(), player_id));
+                                }
+                            }
+                        }
+
+                        all_players.sort_by_key(|o| o.2.get_stat(*result));
+                        if *reverse {
+                            all_players.reverse()
+                        };
+
+                        for (rank, ap) in all_players[0..30].iter().enumerate() {
+                            let player = ap.1;
+
+                            ui.label(format!("{}", rank + 1));
+                            if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
+                                mode = Mode::Player(None, *ap.3);
+                            }
+                            ui.label(ap.0);
+
+
+                            let stats = &ap.2;
+
+                            ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
+                            ui.label(format!("{}", stats.p_bf));
+                            ui.label(format!("{}", stats.p_h));
+                            ui.label(format!("{}", stats.p_2b));
+                            ui.label(format!("{}", stats.p_3b));
+                            ui.label(format!("{}", stats.p_hr));
+                            ui.label(format!("{}", stats.p_bb));
+                            ui.label(format!("{}", stats.p_hbp));
+                            ui.label(format!("{}", stats.p_r));
+                            ui.label(format!("{}", stats.p_er));
+                            ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
+                            ui.label(format!("{}.{:03}", stats.p_whip / 1000, stats.p_whip % 1000));
+                            ui.label(format!("{}.{:03}", stats.p_avg / 1000, stats.p_avg % 1000));
+                            ui.label(format!("{}.{:03}", stats.p_obp / 1000, stats.p_obp % 1000));
+                            ui.label(format!("{}.{:03}", stats.p_slg / 1000, stats.p_slg % 1000));
                             ui.end_row();
                         }
                     });
