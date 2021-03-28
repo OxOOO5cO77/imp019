@@ -30,6 +30,7 @@ pub struct Imp019App {
     year: u32,
     disp_league: usize,
     disp_mode: Mode,
+    sim_all: bool,
 }
 
 impl Default for Imp019App {
@@ -42,6 +43,7 @@ impl Default for Imp019App {
             year: 2030,
             disp_league: 0,
             disp_mode: Mode::Schedule,
+            sim_all: false,
         }
     }
 }
@@ -143,6 +145,7 @@ impl Imp019App {
             year,
             disp_league: 0,
             disp_mode: Mode::Schedule,
+            sim_all: false,
         }
     }
 
@@ -200,10 +203,15 @@ impl epi::App for Imp019App {
                     }
                 };
                 if ui.button("Sim All").clicked() {
-                    while self.update() {}
+                    self.sim_all = true;
                 }
             });
         });
+
+        if self.sim_all {
+            self.sim_all = self.update();
+            ctx.request_repaint();
+        }
 
         egui::SidePanel::left("side_panel", 200.0).show(ctx, |ui| {
             ui.heading("Leagues");
@@ -363,7 +371,7 @@ impl epi::App for Imp019App {
                                     for player_id in &team.players {
                                         let player = self.players.get(player_id).unwrap();
                                         if player.pos == Position::Pitcher {
-                                            continue
+                                            continue;
                                         }
                                         let stats = player.get_stats();
 
@@ -411,7 +419,7 @@ impl epi::App for Imp019App {
                                     for player_id in &team.players {
                                         let player = self.players.get(player_id).unwrap();
                                         if player.pos != Position::Pitcher {
-                                            continue
+                                            continue;
                                         }
                                         let stats = player.get_stats();
 
