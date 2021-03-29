@@ -271,7 +271,7 @@ impl HistoricalStats {
             p_obp: calc_obp1000(p_bf, p_h, p_bb, p_hbp),
             p_slg: calc_slg1000(p_ab, p_1b, p_2b, p_3b, p_hr),
             p_era: calc_era1000(p_er, p_o),
-            p_whip: calc_whip1000(p_h,p_bb,p_o),
+            p_whip: calc_whip1000(p_h, p_bb, p_o),
         }
     }
 }
@@ -297,17 +297,28 @@ fn gen_gamma(rng: &mut ThreadRng, shape: f64, scale: f64) -> f64 {
     Gamma::new(shape, scale).unwrap().sample(rng)
 }
 
-impl Player {
-    fn generate_expect(target_obp: f64, raw_h1b: f64, raw_h2b: f64, raw_h3b: f64, raw_hr: f64, raw_bb: f64, raw_hbp: f64) -> HashMap<Stat, f64> {
-        let obp_total = raw_h1b + raw_h2b + raw_h3b + raw_hr + raw_bb + raw_hbp;
-        let h1b = (raw_h1b / obp_total) * target_obp;
-        let h2b = (raw_h2b / obp_total) * target_obp;
-        let h3b = (raw_h3b / obp_total) * target_obp;
-        let hr = (raw_hr / obp_total) * target_obp;
-        let bb = (raw_bb / obp_total) * target_obp;
-        let hbp = (raw_hbp / obp_total) * target_obp;
+struct ExpectPct {
+    target_obp: f64,
+    h1b: f64,
+    h2b: f64,
+    h3b: f64,
+    hr: f64,
+    bb: f64,
+    hbp: f64,
+}
 
-        let o = 1.0 - target_obp;
+impl Player {
+    // expectations are stored as batter stats for ease of lookup
+    fn generate_expect(expect_pct: ExpectPct) -> HashMap<Stat, f64> {
+        let obp_total = expect_pct.h1b + expect_pct.h2b + expect_pct.h3b + expect_pct.hr + expect_pct.bb + expect_pct.hbp;
+        let h1b = (expect_pct.h1b / obp_total) * expect_pct.target_obp;
+        let h2b = (expect_pct.h2b / obp_total) * expect_pct.target_obp;
+        let h3b = (expect_pct.h3b / obp_total) * expect_pct.target_obp;
+        let hr = (expect_pct.hr / obp_total) * expect_pct.target_obp;
+        let bb = (expect_pct.bb / obp_total) * expect_pct.target_obp;
+        let hbp = (expect_pct.hbp / obp_total) * expect_pct.target_obp;
+
+        let o = 1.0 - expect_pct.target_obp;
 
         let mut expect = HashMap::new();
         expect.insert(Stat::B1b, h1b);
@@ -317,33 +328,52 @@ impl Player {
         expect.insert(Stat::Bbb, bb);
         expect.insert(Stat::Bhbp, hbp);
         expect.insert(Stat::Bo, o);
+
         expect
     }
 
     fn generate_bat_expect(rng: &mut ThreadRng) -> HashMap<Stat, f64> {
         let target_obp = gen_normal(rng, 0.320, 0.036);
+        let h1b = gen_normal(rng, 96.6, 21.5);
+        let h2b = gen_normal(rng, 0.342, 0.137) * h1b;
+        let h3b = gen_normal(rng, 0.0985, 0.0666) * h2b;
+        let hr = gen_gamma(rng, 1.75, 9.0);
+        let bb = gen_normal(rng, 59.44, 18.71);
+        let hbp = gen_normal(rng, 4.0, 4.0);
 
-        let raw_h1b = gen_normal(rng, 96.6, 21.5);
-        let raw_h2b = gen_normal(rng, 0.342, 0.137) * raw_h1b;
-        let raw_h3b = gen_normal(rng, 0.0985, 0.0666) * raw_h2b;
-        let raw_hr = gen_gamma(rng, 1.75, 9.0);
-        let raw_bb = gen_normal(rng, 59.44, 18.71);
-        let raw_hbp = gen_normal(rng, 4.0, 4.0);
+        let expect = ExpectPct {
+            target_obp,
+            h1b,
+            h2b,
+            h3b,
+            hr,
+            bb,
+            hbp,
+        };
 
-        Player::generate_expect(target_obp, raw_h1b, raw_h2b, raw_h3b, raw_hr, raw_bb, raw_hbp)
+        Player::generate_expect(expect)
     }
 
     fn generate_pit_expect(rng: &mut ThreadRng) -> HashMap<Stat, f64> {
         let target_obp = gen_normal(rng, 0.321, 0.039);
+        let h1b = gen_normal(rng, 96.6, 21.5);
+        let h2b = gen_normal(rng, 0.342, 0.137) * h1b;
+        let h3b = gen_normal(rng, 0.0985, 0.0666) * h2b;
+        let hr = gen_normal(rng, 12.812, 8.058196141);
+        let bb = gen_normal(rng, 29.45, 15.42658287);
+        let hbp = gen_normal(rng, 3.624, 2.946181252);
 
-        let raw_h1b = gen_normal(rng, 96.6, 21.5);
-        let raw_h2b = gen_normal(rng, 0.342, 0.137) * raw_h1b;
-        let raw_h3b = gen_normal(rng, 0.0985, 0.0666) * raw_h2b;
-        let raw_hr = gen_normal(rng, 12.812, 8.058196141);
-        let raw_bb = gen_normal(rng, 29.45, 15.42658287);
-        let raw_hbp = gen_normal(rng, 3.624, 2.946181252);
+        let expect = ExpectPct {
+            target_obp,
+            h1b,
+            h2b,
+            h3b,
+            hr,
+            bb,
+            hbp,
+        };
 
-        Player::generate_expect(target_obp, raw_h1b, raw_h2b, raw_h3b, raw_hr, raw_bb, raw_hbp)
+        Player::generate_expect(expect)
     }
 
     pub(crate) fn new(name_first: String, name_last: String, pos: &Position, rng: &mut ThreadRng) -> Self {
