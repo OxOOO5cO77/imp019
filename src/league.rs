@@ -96,5 +96,6 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, 
     //update all player ages
     for player in players.values_mut() {
         player.update_age();
+        player.fatigue = 0;
     }
 }

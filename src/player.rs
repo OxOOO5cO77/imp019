@@ -19,6 +19,12 @@ pub(crate) enum Position {
     DesignatedHitter,
 }
 
+impl Default for Position {
+    fn default() -> Self {
+        Position::Pitcher
+    }
+}
+
 impl Position {
     pub(crate) fn to_str(&self) -> &str {
         match self {
@@ -56,12 +62,16 @@ impl Handedness {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Stat {
     // recorded
+    G,
+    Gs,
+    // recorded
     B1b,
     B2b,
     B3b,
     Bhr,
     Bbb,
     Bhbp,
+    Bso,
     Bo,
     Br,
     Brbi,
@@ -80,6 +90,7 @@ pub(crate) enum Stat {
     Pbb,
     Phbp,
     Po,
+    Pso,
     Pr,
     Per,
     // calculated
@@ -90,19 +101,6 @@ pub(crate) enum Stat {
     Pslg,
     Pera,
     Pwhip,
-}
-
-pub(crate) fn opposing_stat(stat: Stat) -> Option<Stat> {
-    Some(match stat {
-        Stat::B1b => Stat::P1b,
-        Stat::B2b => Stat::P2b,
-        Stat::B3b => Stat::P3b,
-        Stat::Bhr => Stat::Phr,
-        Stat::Bbb => Stat::Pbb,
-        Stat::Bhbp => Stat::Phbp,
-        Stat::Bo => Stat::Po,
-        _ => return None
-    })
 }
 
 fn div1000_or_0(n: u32, d: u32) -> u32 {
@@ -130,6 +128,8 @@ fn calc_whip1000(h: u32, bb: u32, o: u32) -> u32 {
 }
 
 pub(crate) struct Stats {
+    pub(crate) g: u32,
+    pub(crate) gs: u32,
     b_1b: u32,
     pub(crate) b_2b: u32,
     pub(crate) b_3b: u32,
@@ -138,6 +138,7 @@ pub(crate) struct Stats {
     pub(crate) b_hbp: u32,
     pub(crate) b_r: u32,
     pub(crate) b_rbi: u32,
+    pub(crate) b_so: u32,
     b_o: u32,
     pub(crate) b_h: u32,
     pub(crate) b_ab: u32,
@@ -154,6 +155,7 @@ pub(crate) struct Stats {
     pub(crate) p_hbp: u32,
     pub(crate) p_r: u32,
     pub(crate) p_er: u32,
+    pub(crate) p_so: u32,
     pub(crate) p_o: u32,
     pub(crate) p_h: u32,
     pub(crate) p_bf: u32,
@@ -167,12 +169,15 @@ pub(crate) struct Stats {
 impl Stats {
     pub(crate) fn get_stat(&self, stat: Stat) -> u32 {
         match stat {
+            Stat::G => self.g,
+            Stat::Gs => self.gs,
             Stat::B1b => self.b_1b,
             Stat::B2b => self.b_2b,
             Stat::B3b => self.b_3b,
             Stat::Bhr => self.b_hr,
             Stat::Bbb => self.b_bb,
             Stat::Bhbp => self.b_hbp,
+            Stat::Bso => self.b_so,
             Stat::Bo => self.b_o,
             Stat::Br => self.b_r,
             Stat::Brbi => self.b_rbi,
@@ -188,6 +193,7 @@ impl Stats {
             Stat::Phr => self.p_hr,
             Stat::Pbb => self.p_bb,
             Stat::Phbp => self.p_hbp,
+            Stat::Pso => self.p_so,
             Stat::Po => self.p_o,
             Stat::Pr => self.p_r,
             Stat::Per => self.p_er,
@@ -212,12 +218,16 @@ pub(crate) struct HistoricalStats {
 
 impl HistoricalStats {
     pub(crate) fn get_stats(&self) -> Stats {
+        let g = *self.batting_stats.get(&Stat::G).unwrap_or(&0);
+        let gs = *self.batting_stats.get(&Stat::Gs).unwrap_or(&0);
+
         let b_1b = *self.batting_stats.get(&Stat::B1b).unwrap_or(&0);
         let b_2b = *self.batting_stats.get(&Stat::B2b).unwrap_or(&0);
         let b_3b = *self.batting_stats.get(&Stat::B3b).unwrap_or(&0);
         let b_hr = *self.batting_stats.get(&Stat::Bhr).unwrap_or(&0);
         let b_bb = *self.batting_stats.get(&Stat::Bbb).unwrap_or(&0);
         let b_hbp = *self.batting_stats.get(&Stat::Bhbp).unwrap_or(&0);
+        let b_so = *self.batting_stats.get(&Stat::Bso).unwrap_or(&0);
         let b_o = *self.batting_stats.get(&Stat::Bo).unwrap_or(&0);
         let b_r = *self.batting_stats.get(&Stat::Br).unwrap_or(&0);
         let b_rbi = *self.batting_stats.get(&Stat::Brbi).unwrap_or(&0);
@@ -232,6 +242,7 @@ impl HistoricalStats {
         let p_hr = *self.batting_stats.get(&Stat::Phr).unwrap_or(&0);
         let p_bb = *self.batting_stats.get(&Stat::Pbb).unwrap_or(&0);
         let p_hbp = *self.batting_stats.get(&Stat::Phbp).unwrap_or(&0);
+        let p_so = *self.batting_stats.get(&Stat::Pso).unwrap_or(&0);
         let p_o = *self.batting_stats.get(&Stat::Po).unwrap_or(&0);
         let p_r = *self.batting_stats.get(&Stat::Pr).unwrap_or(&0);
         let p_er = *self.batting_stats.get(&Stat::Per).unwrap_or(&0);
@@ -241,6 +252,8 @@ impl HistoricalStats {
         let p_bf = p_ab + p_bb + p_hbp;
 
         Stats {
+            g,
+            gs,
             b_1b,
             b_2b,
             b_3b,
@@ -249,6 +262,7 @@ impl HistoricalStats {
             b_hbp,
             b_r,
             b_rbi,
+            b_so,
             b_o,
             b_h,
             b_ab,
@@ -264,6 +278,7 @@ impl HistoricalStats {
             p_hbp,
             p_r,
             p_er,
+            p_so,
             p_o,
             p_h,
             p_bf,
@@ -283,10 +298,19 @@ pub(crate) struct Player {
     pub(crate) pos: Position,
     pub(crate) bats: Handedness,
     pub(crate) throws: Handedness,
-    pub(crate) bat_expect: HashMap<Stat, f64>,
-    pub(crate) pit_expect: HashMap<Stat, f64>,
-    stats: Vec<Stat>,
+    pub(crate) bat_expect: HashMap<Expect, f64>,
+    pub(crate) pit_expect: HashMap<Expect, f64>,
+    stat_stream: Vec<Stat>,
     pub(crate) historical: Vec<HistoricalStats>,
+    pub(crate) fatigue: u16,
+}
+
+impl Player {
+    pub(crate) fn fatigue_threshold(&self) -> f64 {
+        let mut age_factor = ( 50u64 - self.age.min(49) as u64 ) * 2;
+        age_factor = age_factor * age_factor;
+        age_factor as f64
+    }
 }
 
 fn gen_normal(rng: &mut ThreadRng, mean: f64, stddev: f64) -> f64 {
@@ -297,6 +321,45 @@ fn gen_gamma(rng: &mut ThreadRng, shape: f64, scale: f64) -> f64 {
     Gamma::new(shape, scale).unwrap().sample(rng)
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Expect {
+    Single,
+    Double,
+    Triple,
+    HomeRun,
+    Walk,
+    HitByPitch,
+    Strikeout,
+    Out,
+}
+
+impl Expect {
+    pub(crate) fn to_batting_stat(&self) -> Stat {
+        match self {
+            Expect::Single => Stat::B1b,
+            Expect::Double => Stat::B2b,
+            Expect::Triple => Stat::B3b,
+            Expect::HomeRun => Stat::Bhr,
+            Expect::Walk => Stat::Bbb,
+            Expect::HitByPitch => Stat::Bhbp,
+            Expect::Strikeout => Stat::Bso,
+            Expect::Out => Stat::Bo,
+        }
+    }
+    pub(crate) fn to_pitching_stat(&self) -> Stat {
+        match self {
+            Expect::Single => Stat::P1b,
+            Expect::Double => Stat::P2b,
+            Expect::Triple => Stat::P3b,
+            Expect::HomeRun => Stat::Phr,
+            Expect::Walk => Stat::Pbb,
+            Expect::HitByPitch => Stat::Phbp,
+            Expect::Strikeout => Stat::Pso,
+            Expect::Out => Stat::Po,
+        }
+    }
+}
+
 struct ExpectPct {
     target_obp: f64,
     h1b: f64,
@@ -305,11 +368,11 @@ struct ExpectPct {
     hr: f64,
     bb: f64,
     hbp: f64,
+    so: f64,
 }
 
 impl Player {
-    // expectations are stored as batter stats for ease of lookup
-    fn generate_expect(expect_pct: ExpectPct) -> HashMap<Stat, f64> {
+    fn generate_expect(expect_pct: ExpectPct) -> HashMap<Expect, f64> {
         let obp_total = expect_pct.h1b + expect_pct.h2b + expect_pct.h3b + expect_pct.hr + expect_pct.bb + expect_pct.hbp;
         let h1b = (expect_pct.h1b / obp_total) * expect_pct.target_obp;
         let h2b = (expect_pct.h2b / obp_total) * expect_pct.target_obp;
@@ -318,21 +381,23 @@ impl Player {
         let bb = (expect_pct.bb / obp_total) * expect_pct.target_obp;
         let hbp = (expect_pct.hbp / obp_total) * expect_pct.target_obp;
 
-        let o = 1.0 - expect_pct.target_obp;
+        let so = expect_pct.so;
+        let o = 1.0 - expect_pct.target_obp - so;
 
         let mut expect = HashMap::new();
-        expect.insert(Stat::B1b, h1b);
-        expect.insert(Stat::B2b, h2b);
-        expect.insert(Stat::B3b, h3b);
-        expect.insert(Stat::Bhr, hr);
-        expect.insert(Stat::Bbb, bb);
-        expect.insert(Stat::Bhbp, hbp);
-        expect.insert(Stat::Bo, o);
+        expect.insert(Expect::Single, h1b);
+        expect.insert(Expect::Double, h2b);
+        expect.insert(Expect::Triple, h3b);
+        expect.insert(Expect::HomeRun, hr);
+        expect.insert(Expect::Walk, bb);
+        expect.insert(Expect::HitByPitch, hbp);
+        expect.insert(Expect::Strikeout, so);
+        expect.insert(Expect::Out, o);
 
         expect
     }
 
-    fn generate_bat_expect(rng: &mut ThreadRng) -> HashMap<Stat, f64> {
+    fn generate_bat_expect(rng: &mut ThreadRng) -> HashMap<Expect, f64> {
         let target_obp = gen_normal(rng, 0.320, 0.036);
         let h1b = gen_normal(rng, 96.6, 21.5);
         let h2b = gen_normal(rng, 0.342, 0.137) * h1b;
@@ -340,6 +405,7 @@ impl Player {
         let hr = gen_gamma(rng, 1.75, 9.0);
         let bb = gen_normal(rng, 59.44, 18.71);
         let hbp = gen_normal(rng, 4.0, 4.0);
+        let so = gen_normal(rng, 0.1914556061, 0.02597102753);
 
         let expect = ExpectPct {
             target_obp,
@@ -349,12 +415,13 @@ impl Player {
             hr,
             bb,
             hbp,
+            so,
         };
 
         Player::generate_expect(expect)
     }
 
-    fn generate_pit_expect(rng: &mut ThreadRng) -> HashMap<Stat, f64> {
+    fn generate_pit_expect(rng: &mut ThreadRng) -> HashMap<Expect, f64> {
         let target_obp = gen_normal(rng, 0.321, 0.039);
         let h1b = gen_normal(rng, 96.6, 21.5);
         let h2b = gen_normal(rng, 0.342, 0.137) * h1b;
@@ -362,6 +429,7 @@ impl Player {
         let hr = gen_normal(rng, 12.812, 8.058196141);
         let bb = gen_normal(rng, 29.45, 15.42658287);
         let hbp = gen_normal(rng, 3.624, 2.946181252);
+        let so = gen_normal(rng, 0.1928022279, 0.02819196439);
 
         let expect = ExpectPct {
             target_obp,
@@ -371,13 +439,14 @@ impl Player {
             hr,
             bb,
             hbp,
+            so
         };
 
         Player::generate_expect(expect)
     }
 
     pub(crate) fn new(name_first: String, name_last: String, pos: &Position, rng: &mut ThreadRng) -> Self {
-        let age = 17 + gen_gamma(rng, 2.0, 3.0) as u8;
+        let age = 18 + gen_gamma(rng, 2.0, 3.0) as u8;
 
         let batting_hand = vec![
             (Handedness::Right, 54),
@@ -405,8 +474,9 @@ impl Player {
             throws: *pitch_hand,
             bat_expect,
             pit_expect,
-            stats: vec![],
+            stat_stream: vec![],
             historical: vec![],
+            fatigue: 0,
         }
     }
 
@@ -415,11 +485,11 @@ impl Player {
     }
 
     fn reset_stats(&mut self) {
-        self.stats.clear();
+        self.stat_stream.clear();
     }
 
     pub(crate) fn record_stat(&mut self, stat: Stat) {
-        self.stats.push(stat);
+        self.stat_stream.push(stat);
     }
 
     pub(crate) fn record_stat_history(&mut self, year: u32, league: u32, team_id: u64) {
@@ -429,7 +499,7 @@ impl Player {
             team: team_id,
             ..HistoricalStats::default()
         };
-        for stat in &self.stats {
+        for stat in &self.stat_stream {
             let val = historical.batting_stats.entry(*stat).or_insert(0);
             *val += 1;
         }
@@ -443,12 +513,15 @@ impl Player {
     }
 
     pub(crate) fn get_stats(&self) -> Stats {
+        let mut g = 0;
+        let mut gs = 0;
         let mut b_1b = 0;
         let mut b_2b = 0;
         let mut b_3b = 0;
         let mut b_hr = 0;
         let mut b_bb = 0;
         let mut b_hbp = 0;
+        let mut b_so = 0;
         let mut b_o = 0;
         let mut b_r = 0;
         let mut b_rbi = 0;
@@ -458,18 +531,22 @@ impl Player {
         let mut p_hr = 0;
         let mut p_bb = 0;
         let mut p_hbp = 0;
+        let mut p_so = 0;
         let mut p_o = 0;
         let mut p_r = 0;
         let mut p_er = 0;
 
-        for stat in &self.stats {
+        for stat in &self.stat_stream {
             match stat {
+                Stat::G => g += 1,
+                Stat::Gs => gs += 1,
                 Stat::B1b => b_1b += 1,
                 Stat::B2b => b_2b += 1,
                 Stat::B3b => b_3b += 1,
                 Stat::Bhr => b_hr += 1,
                 Stat::Bbb => b_bb += 1,
                 Stat::Bhbp => b_hbp += 1,
+                Stat::Bso => b_so += 1,
                 Stat::Bo => b_o += 1,
                 Stat::Br => b_r += 1,
                 Stat::Brbi => b_rbi += 1,
@@ -479,6 +556,7 @@ impl Player {
                 Stat::Phr => p_hr += 1,
                 Stat::Pbb => p_bb += 1,
                 Stat::Phbp => p_hbp += 1,
+                Stat::Pso => p_so += 1,
                 Stat::Po => p_o += 1,
                 Stat::Pr => p_r += 1,
                 Stat::Per => p_er += 1,
@@ -504,12 +582,15 @@ impl Player {
         let p_whip = calc_whip1000(p_h, p_bb, p_o);
 
         Stats {
+            g,
+            gs,
             b_1b,
             b_2b,
             b_3b,
             b_hr,
             b_bb,
             b_hbp,
+            b_so,
             b_o,
             b_r,
             b_rbi,
@@ -527,6 +608,7 @@ impl Player {
             p_hbp,
             p_r,
             p_er,
+            p_so,
             p_o,
             p_h,
             p_bf,

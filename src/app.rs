@@ -89,7 +89,7 @@ impl Imp019App {
         let mut players = HashMap::new();
         players.reserve(2000);
         for pos in pos_gen {
-            for _ in 1..=100 {
+            for _ in 1..=200 {
                 let name_first = data.choose_name_first(&mut rng);
                 let name_last = data.choose_name_last(&mut rng);
                 players.insert(player_id, Player::new(name_first, name_last, &pos, &mut rng));
@@ -109,6 +109,15 @@ impl Imp019App {
             let nick = nicks[team_id].clone();
             let mut team = Team::new(abbr, city, state, nick, year);
 
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::Catcher));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::FirstBase));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::SecondBase));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::ThirdBase));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::ShortStop));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::LeftField));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::CenterField));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::RightField));
+            team.players.push(Imp019App::pick_player(&mut unused_players, Position::DesignatedHitter));
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::Catcher));
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::FirstBase));
             team.players.push(Imp019App::pick_player(&mut unused_players, Position::SecondBase));
@@ -352,6 +361,8 @@ impl epi::App for Imp019App {
                                 egui::Grid::new("batting").striped(true).show(ui, |ui| {
                                     ui.label("Name");
                                     ui.label("Pos");
+                                    ui.label("G");
+                                    ui.label("GS");
                                     ui.label("PA");
                                     ui.label("AB");
                                     ui.label("H");
@@ -360,6 +371,7 @@ impl epi::App for Imp019App {
                                     ui.label("HR");
                                     ui.label("BB");
                                     ui.label("HBP");
+                                    ui.label("SO");
                                     ui.label("R");
                                     ui.label("RBI");
                                     ui.label("AVG");
@@ -379,6 +391,8 @@ impl epi::App for Imp019App {
                                             mode = Mode::Player(Some(*id), *player_id);
                                         }
                                         ui.label(player.pos.to_str());
+                                        ui.label(format!("{}", stats.g));
+                                        ui.label(format!("{}", stats.gs));
                                         ui.label(format!("{}", stats.b_pa));
                                         ui.label(format!("{}", stats.b_ab));
                                         ui.label(format!("{}", stats.b_h));
@@ -387,6 +401,7 @@ impl epi::App for Imp019App {
                                         ui.label(format!("{}", stats.b_hr));
                                         ui.label(format!("{}", stats.b_bb));
                                         ui.label(format!("{}", stats.b_hbp));
+                                        ui.label(format!("{}", stats.b_so));
                                         ui.label(format!("{}", stats.b_r));
                                         ui.label(format!("{}", stats.b_rbi));
                                         ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
@@ -398,6 +413,8 @@ impl epi::App for Imp019App {
                                 ui.heading("Pitching");
                                 egui::Grid::new("pitching").striped(true).show(ui, |ui| {
                                     ui.label("Name");
+                                    ui.label("G");
+                                    ui.label("GS");
                                     ui.label("IP");
                                     ui.label("BF");
                                     ui.label("H");
@@ -406,6 +423,7 @@ impl epi::App for Imp019App {
                                     ui.label("HR");
                                     ui.label("BB");
                                     ui.label("HBP");
+                                    ui.label("SO");
                                     ui.label("R");
                                     ui.label("ER");
                                     ui.label("ERA");
@@ -426,6 +444,8 @@ impl epi::App for Imp019App {
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
                                             mode = Mode::Player(Some(*id), *player_id);
                                         }
+                                        ui.label(format!("{}", stats.g));
+                                        ui.label(format!("{}", stats.gs));
                                         ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                                         ui.label(format!("{}", stats.p_bf));
                                         ui.label(format!("{}", stats.p_h));
@@ -434,6 +454,7 @@ impl epi::App for Imp019App {
                                         ui.label(format!("{}", stats.p_hr));
                                         ui.label(format!("{}", stats.p_bb));
                                         ui.label(format!("{}", stats.p_hbp));
+                                        ui.label(format!("{}", stats.p_so));
                                         ui.label(format!("{}", stats.p_r));
                                         ui.label(format!("{}", stats.p_er));
                                         ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
@@ -484,6 +505,7 @@ impl epi::App for Imp019App {
                         ui.label("HR");
                         ui.label("BB");
                         ui.label("HBP");
+                        ui.label("SO");
                         ui.label("R");
                         ui.label("RBI");
                         ui.label("AVG");
@@ -505,6 +527,7 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", stats.b_hr));
                             ui.label(format!("{}", stats.b_bb));
                             ui.label(format!("{}", stats.b_hbp));
+                            ui.label(format!("{}", stats.b_so));
                             ui.label(format!("{}", stats.b_r));
                             ui.label(format!("{}", stats.b_rbi));
                             ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
@@ -523,6 +546,12 @@ impl epi::App for Imp019App {
                         ui.label("#");
                         ui.label("Name");
                         ui.label("Team");
+                        if ui.button("G").clicked() {
+                            mode = select_bat_stat(Stat::G, *result, *reverse, true);
+                        }
+                        if ui.button("GS").clicked() {
+                            mode = select_bat_stat(Stat::Gs, *result, *reverse, true);
+                        }
                         if ui.button("PA").clicked() {
                             mode = select_bat_stat(Stat::Bpa, *result, *reverse, true);
                         }
@@ -546,6 +575,9 @@ impl epi::App for Imp019App {
                         }
                         if ui.button("HBP").clicked() {
                             mode = select_bat_stat(Stat::Bhbp, *result, *reverse, true);
+                        }
+                        if ui.button("SO").clicked() {
+                            mode = select_bat_stat(Stat::Bso, *result, *reverse, true);
                         }
                         if ui.button("R").clicked() {
                             mode = select_bat_stat(Stat::Br, *result, *reverse, true);
@@ -593,6 +625,8 @@ impl epi::App for Imp019App {
 
                             let stats = &ap.2;
 
+                            ui.label(format!("{}", stats.g));
+                            ui.label(format!("{}", stats.gs));
                             ui.label(format!("{}", stats.b_pa));
                             ui.label(format!("{}", stats.b_ab));
                             ui.label(format!("{}", stats.b_h));
@@ -601,6 +635,7 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", stats.b_hr));
                             ui.label(format!("{}", stats.b_bb));
                             ui.label(format!("{}", stats.b_hbp));
+                            ui.label(format!("{}", stats.b_so));
                             ui.label(format!("{}", stats.b_r));
                             ui.label(format!("{}", stats.b_rbi));
                             ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
@@ -619,6 +654,12 @@ impl epi::App for Imp019App {
                         ui.label("#");
                         ui.label("Name");
                         ui.label("Team");
+                        if ui.button("G").clicked() {
+                            mode = select_pit_stat(Stat::G, *result, *reverse, true);
+                        }
+                        if ui.button("GS").clicked() {
+                            mode = select_pit_stat(Stat::Gs, *result, *reverse, true);
+                        }
                         if ui.button("IP").clicked() {
                             mode = select_pit_stat(Stat::Po, *result, *reverse, true);
                         }
@@ -642,6 +683,9 @@ impl epi::App for Imp019App {
                         }
                         if ui.button("HBP").clicked() {
                             mode = select_pit_stat(Stat::Phbp, *result, *reverse, true);
+                        }
+                        if ui.button("SO").clicked() {
+                            mode = select_pit_stat(Stat::Pso, *result, *reverse, true);
                         }
                         if ui.button("R").clicked() {
                             mode = select_pit_stat(Stat::Pr, *result, *reverse, true);
@@ -695,6 +739,8 @@ impl epi::App for Imp019App {
 
                             let stats = &ap.2;
 
+                            ui.label(format!("{}", stats.g));
+                            ui.label(format!("{}", stats.gs));
                             ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                             ui.label(format!("{}", stats.p_bf));
                             ui.label(format!("{}", stats.p_h));
@@ -703,6 +749,7 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", stats.p_hr));
                             ui.label(format!("{}", stats.p_bb));
                             ui.label(format!("{}", stats.p_hbp));
+                            ui.label(format!("{}", stats.p_so));
                             ui.label(format!("{}", stats.p_r));
                             ui.label(format!("{}", stats.p_er));
                             ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
