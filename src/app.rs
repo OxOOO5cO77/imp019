@@ -432,50 +432,112 @@ impl epi::App for Imp019App {
                     ui.label(format!("Bats: {}", player.bats.to_str()));
                     ui.label(format!("Throws: {}", player.throws.to_str()));
 
-                    ui.heading("History");
-                    egui::Grid::new("history").striped(true).show(ui, |ui| {
-                        ui.label("Year");
-                        ui.label("League");
-                        ui.label("Team");
-                        ui.label("PA");
-                        ui.label("AB");
-                        ui.label("H");
-                        ui.label("2B");
-                        ui.label("3B");
-                        ui.label("HR");
-                        ui.label("BB");
-                        ui.label("HBP");
-                        ui.label("SO");
-                        ui.label("R");
-                        ui.label("RBI");
-                        ui.label("AVG");
-                        ui.label("OBP");
-                        ui.label("SLG");
-                        ui.end_row();
-
-                        for history in &player.historical {
-                            let stats = history.get_stats();
-
-                            ui.label(format!("{}", history.year));
-                            ui.label(format!("{}", history.league));
-                            ui.label(format!("{}", history.team));
-                            ui.label(format!("{}", stats.b_pa));
-                            ui.label(format!("{}", stats.b_ab));
-                            ui.label(format!("{}", stats.b_h));
-                            ui.label(format!("{}", stats.b_2b));
-                            ui.label(format!("{}", stats.b_3b));
-                            ui.label(format!("{}", stats.b_hr));
-                            ui.label(format!("{}", stats.b_bb));
-                            ui.label(format!("{}", stats.b_hbp));
-                            ui.label(format!("{}", stats.b_so));
-                            ui.label(format!("{}", stats.b_r));
-                            ui.label(format!("{}", stats.b_rbi));
-                            ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
-                            ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
-                            ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
+                    if player.pos != Position::Pitcher {
+                        ui.heading("Batting History");
+                        egui::Grid::new("bhistory").striped(true).show(ui, |ui| {
+                            ui.label("Year");
+                            ui.label("League");
+                            ui.label("Team");
+                            ui.label("G");
+                            ui.label("GS");
+                            ui.label("PA");
+                            ui.label("AB");
+                            ui.label("H");
+                            ui.label("2B");
+                            ui.label("3B");
+                            ui.label("HR");
+                            ui.label("BB");
+                            ui.label("HBP");
+                            ui.label("SO");
+                            ui.label("R");
+                            ui.label("RBI");
+                            ui.label("AVG");
+                            ui.label("OBP");
+                            ui.label("SLG");
                             ui.end_row();
-                        }
-                    });
+
+                            for history in &player.historical {
+                                let stats = history.get_stats();
+                                let team = self.teams.get(&history.team).unwrap();
+
+                                ui.label(format!("{}", history.year));
+                                ui.label(format!("{}", history.league));
+                                ui.label(&team.abbr);
+                                ui.label(format!("{}", stats.g));
+                                ui.label(format!("{}", stats.gs));
+                                ui.label(format!("{}", stats.b_pa));
+                                ui.label(format!("{}", stats.b_ab));
+                                ui.label(format!("{}", stats.b_h));
+                                ui.label(format!("{}", stats.b_2b));
+                                ui.label(format!("{}", stats.b_3b));
+                                ui.label(format!("{}", stats.b_hr));
+                                ui.label(format!("{}", stats.b_bb));
+                                ui.label(format!("{}", stats.b_hbp));
+                                ui.label(format!("{}", stats.b_so));
+                                ui.label(format!("{}", stats.b_r));
+                                ui.label(format!("{}", stats.b_rbi));
+                                ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
+                                ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
+                                ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
+                                ui.end_row();
+                            }
+                        });
+
+                    } else {
+                        ui.heading("Pitching History");
+                        egui::Grid::new("phistory").striped(true).show(ui, |ui| {
+                            ui.label("Year");
+                            ui.label("League");
+                            ui.label("Team");
+                            ui.label("G");
+                            ui.label("GS");
+                            ui.label("IP");
+                            ui.label("BF");
+                            ui.label("H");
+                            ui.label("2B");
+                            ui.label("3B");
+                            ui.label("HR");
+                            ui.label("BB");
+                            ui.label("HBP");
+                            ui.label("SO");
+                            ui.label("R");
+                            ui.label("ER");
+                            ui.label("ERA");
+                            ui.label("WHIP");
+                            ui.label("AVG");
+                            ui.label("OBP");
+                            ui.label("SLG");
+                            ui.end_row();
+
+                            for history in &player.historical {
+                                let stats = history.get_stats();
+                                let team = self.teams.get(&history.team).unwrap();
+
+                                ui.label(format!("{}", history.year));
+                                ui.label(format!("{}", history.league));
+                                ui.label(&team.abbr);
+                                ui.label(format!("{}", stats.g));
+                                ui.label(format!("{}", stats.gs));
+                                ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
+                                ui.label(format!("{}", stats.p_bf));
+                                ui.label(format!("{}", stats.p_h));
+                                ui.label(format!("{}", stats.p_2b));
+                                ui.label(format!("{}", stats.p_3b));
+                                ui.label(format!("{}", stats.p_hr));
+                                ui.label(format!("{}", stats.p_bb));
+                                ui.label(format!("{}", stats.p_hbp));
+                                ui.label(format!("{}", stats.p_so));
+                                ui.label(format!("{}", stats.p_r));
+                                ui.label(format!("{}", stats.p_er));
+                                ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
+                                ui.label(format!("{}.{:03}", stats.p_whip / 1000, stats.p_whip % 1000));
+                                ui.label(format!("{}.{:03}", stats.p_avg / 1000, stats.p_avg % 1000));
+                                ui.label(format!("{}.{:03}", stats.p_obp / 1000, stats.p_obp % 1000));
+                                ui.label(format!("{}.{:03}", stats.p_slg / 1000, stats.p_slg % 1000));
+                                ui.end_row();
+                            }
+                        });
+                    }
 
                     mode
                 }
