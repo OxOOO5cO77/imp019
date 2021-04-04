@@ -4034,7 +4034,7 @@ Merrell,8809
 Bartels,8809
 Southard,8808
 Basham,8806
-Dangelo,8802
+D'Angelo,8802
 Raney,8801
 Lehmann,8799
 Worthy,8795
@@ -4226,7 +4226,7 @@ Dion,8395
 Cade,8391
 Aguiar,8390
 Cave,8389
-Dagostino,8388
+D'Agostino,8388
 Haggard,8384
 Wentz,8376
 Armijo,8372
@@ -4480,7 +4480,7 @@ Eggers,7921
 Armstead,7919
 Gayle,7916
 Muro,7916
-Jeanbaptiste,7915
+Jean-Baptiste,7915
 Clemmons,7914
 Dykstra,7913
 Mancilla,7908
@@ -5141,7 +5141,7 @@ Larosa,6808
 Ard,6807
 Rutkowski,6805
 Brody,6805
-Damato,6804
+D'Amato,6804
 Turney,6803
 Tindall,6802
 Pinckney,6800
@@ -5222,7 +5222,7 @@ Mackie,6686
 Van Pelt,6685
 Byars,6683
 Claudio,6679
-Dacosta,6679
+Da Costa,6679
 Lavin,6679
 Darr,6677
 Dombrowski,6676
@@ -5560,7 +5560,7 @@ Faria,6257
 Rood,6254
 Dew,6252
 Duffey,6251
-Dejong,6249
+DeJong,6249
 Browder,6249
 Friedrich,6249
 Ingraham,6248
@@ -6067,7 +6067,7 @@ Fite,5656
 Heintz,5655
 Kirksey,5654
 Scanlan,5654
-Pierrelouis,5653
+Pierre-Louis,5653
 Savoie,5652
 Suter,5648
 Carmack,5648
@@ -6155,7 +6155,7 @@ Cress,5565
 Benally,5562
 McCraw,5561
 Houk,5560
-Dalessandro,5559
+D'Alessandro,5559
 Sokol,5559
 Philpot,5558
 Appleby,5556
@@ -6404,7 +6404,7 @@ McKean,5314
 Spell,5313
 Womble,5311
 Fick,5311
-Dandrea,5310
+D'Andrea,5310
 Swaim,5310
 Muncy,5308
 Schutz,5307
@@ -6873,7 +6873,7 @@ Veach,4896
 Harbaugh,4895
 Liddell,4892
 Acton,4892
-Jeanlouis,4891
+Jean-Louis,4891
 Liston,4888
 Ku,4888
 Pearsall,4888
@@ -7332,7 +7332,7 @@ Pisano,4551
 Yingling,4550
 Staats,4549
 Devaney,4549
-Delvecchio,4548
+Del Vecchio,4548
 Gurney,4547
 Amezquita,4544
 Burmeister,4543
@@ -7761,7 +7761,7 @@ Chenault,4278
 Harner,4277
 Bedwell,4276
 Dimarco,4275
-Dambrosio,4275
+D'Ambrosio,4275
 Fortson,4273
 Albin,4273
 Fehr,4272
@@ -8304,7 +8304,7 @@ Lovelady,3992
 Vannoy,3991
 Kiss,3990
 Northrop,3990
-Jeanpierre,3990
+Jean-Pierre,3990
 Hafer,3989
 Durfee,3989
 Press,3989
@@ -8719,7 +8719,7 @@ Ming,3764
 Raymundo,3764
 Ortez,3762
 Lainez,3762
-Delucia,3762
+DeLucia,3762
 Glasscock,3761
 Grundy,3759
 Krouse,3759
@@ -12114,7 +12114,7 @@ Maddock,2574
 Reding,2574
 Lieber,2573
 Labarbera,2573
-Dantonio,2573
+D'Antonio,2573
 Wilbourn,2573
 Rochon,2573
 Shipe,2573
@@ -15282,7 +15282,7 @@ Harn,1922
 Loud,1922
 Naqvi,1922
 Fallis,1921
-Darosa,1921
+Da Rosa,1921
 Saladino,1921
 Woodie,1921
 Blea,1921
@@ -16928,7 +16928,7 @@ Bashore,1681
 Learned,1681
 Mowbray,1681
 Province,1681
-Jeancharles,1681
+Jean-Charles,1681
 Girton,1681
 Goldschmidt,1680
 Enamorado,1680
@@ -17049,7 +17049,7 @@ McMeans,1666
 Hohmann,1666
 Hitz,1666
 Croll,1666
-Dejohn,1666
+DeJohn,1666
 Difiore,1666
 Coonrod,1666
 Bassi,1666
@@ -17973,7 +17973,7 @@ Prestridge,1555
 Dollard,1555
 Ciesielski,1555
 Hennis,1554
-Jeanfrancois,1554
+Jean-Francois,1554
 Galiano,1554
 Archila,1554
 Zach,1554
@@ -19413,7 +19413,7 @@ Jenness,1393
 Florentino,1393
 Formica,1393
 Goldin,1393
-Jeanjacques,1392
+Jean-Jacques,1392
 Brighton,1392
 Cerra,1392
 Claborn,1392
@@ -20853,7 +20853,7 @@ Payette,1265
 Marts,1265
 Lona,1265
 Cayer,1265
-Dejonge,1265
+DeJonge,1265
 Dickert,1265
 Hibdon,1265
 Woolever,1265
@@ -22124,7 +22124,7 @@ Gamero,1170
 Heffington,1169
 Halm,1169
 Domer,1169
-Dejarnette,1169
+DeJarnette,1169
 Rohrs,1169
 Aspinwall,1169
 Van Dever,1169
