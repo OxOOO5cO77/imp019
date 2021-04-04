@@ -15,7 +15,7 @@ struct RunnerInfo {
     earned: bool,
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Clone, Default)]
 struct DefenseInfo {
     player: u64,
     pos: Position,
@@ -147,7 +147,7 @@ impl Game {
         pitcher.throws
     }
 
-    fn setup_bo(players: &mut HashMap<u64, Player>, teams: &mut HashMap<u64, Team>, scoreboard: &mut Scoreboard, rng: &mut ThreadRng) {
+    fn setup_bo(players: &mut HashMap<u64, Player>, teams: &mut HashMap<u64, Team>, scoreboard: &mut Scoreboard, year: u32, rng: &mut ThreadRng) {
         let team = teams.get_mut(&scoreboard.id).unwrap();
         let mut team_players = team.players.iter().map(|o| (*o, players.get(o).unwrap())).filter(|o| o.1.pos != Position::Pitcher).collect::<Vec<_>>();
         team_players.sort_by_cached_key(|o| o.1.get_stats().b_obp);
@@ -168,8 +168,8 @@ impl Game {
 
             if let Some(replacement) = team_players.iter().find(|o| o.0 != starter.player && o.1.pos == starter.pos ) {
                 let starter_player = players.get(&starter.player).unwrap();
-                let fat_pct = starter_player.fatigue as f64 / starter_player.fatigue_threshold();
-                if rng.gen_bool(fat_pct) {
+                let fat_pct = starter_player.fatigue as f64 / starter_player.fatigue_threshold(year);
+                if rng.gen_bool(fat_pct.min(1.0)) {
                     starter.player = replacement.0;
                 }
             }
@@ -181,12 +181,12 @@ impl Game {
         }
     }
 
-    fn setup_game(&mut self, players: &mut HashMap<u64, Player>, teams: &mut HashMap<u64, Team>, rng: &mut ThreadRng) {
+    fn setup_game(&mut self, players: &mut HashMap<u64, Player>, teams: &mut HashMap<u64, Team>, year: u32, rng: &mut ThreadRng) {
         let _home_hand = Self::setup_pitcher(players, teams, &mut self.home);
         let _away_hand = Self::setup_pitcher(players, teams, &mut self.away);
 
-        Self::setup_bo(players, teams, &mut self.home, rng);
-        Self::setup_bo(players, teams, &mut self.away, rng);
+        Self::setup_bo(players, teams, &mut self.home, year, rng);
+        Self::setup_bo(players, teams, &mut self.away, year, rng);
 
         self.inning.number = 1;
     }
@@ -213,8 +213,8 @@ impl Game {
         player
     }
 
-    pub(crate) fn sim(&mut self, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, rng: &mut ThreadRng) {
-        self.setup_game(players, teams, rng);
+    pub(crate) fn sim(&mut self, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, year: u32, rng: &mut ThreadRng) {
+        self.setup_game(players, teams, year, rng);
 
         while !self.complete() {
             if self.inning.half == InningHalf::Middle {

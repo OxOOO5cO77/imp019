@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
+use enum_iterator::IntoEnumIterator;
+use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 use rand_distr::{Distribution, Gamma, Normal};
-use strum_macros::EnumIter;
 
-#[derive(Copy, Clone, Debug, PartialEq, EnumIter)]
+use crate::data::Data;
+
+#[derive(Copy, Clone, PartialEq, IntoEnumIterator)]
 pub(crate) enum Position {
     Pitcher,
     Catcher,
@@ -292,9 +295,10 @@ impl HistoricalStats {
 }
 
 pub(crate) struct Player {
+    pub(crate) active: bool,
     name_first: String,
     name_last: String,
-    pub(crate) age: u8,
+    pub(crate) born: u32,
     pub(crate) pos: Position,
     pub(crate) bats: Handedness,
     pub(crate) throws: Handedness,
@@ -303,14 +307,6 @@ pub(crate) struct Player {
     stat_stream: Vec<Stat>,
     pub(crate) historical: Vec<HistoricalStats>,
     pub(crate) fatigue: u16,
-}
-
-impl Player {
-    pub(crate) fn fatigue_threshold(&self) -> f64 {
-        let mut age_factor = ( 50u64 - self.age.min(49) as u64 ) * 2;
-        age_factor = age_factor * age_factor;
-        age_factor as f64
-    }
 }
 
 fn gen_normal(rng: &mut ThreadRng, mean: f64, stddev: f64) -> f64 {
@@ -439,14 +435,14 @@ impl Player {
             hr,
             bb,
             hbp,
-            so
+            so,
         };
 
         Player::generate_expect(expect)
     }
 
-    pub(crate) fn new(name_first: String, name_last: String, pos: &Position, rng: &mut ThreadRng) -> Self {
-        let age = 18 + gen_gamma(rng, 2.0, 3.0) as u8;
+    pub(crate) fn new(name_first: String, name_last: String, pos: &Position, year: u32, rng: &mut ThreadRng) -> Self {
+        let age = 18 + gen_gamma(rng, 2.0, 3.0).round() as u32;
 
         let batting_hand = vec![
             (Handedness::Right, 54),
@@ -466,9 +462,10 @@ impl Player {
         let pit_expect = Player::generate_pit_expect(rng);
 
         Player {
+            active: true,
             name_first,
             name_last,
-            age,
+            born: year - age,
             pos: *pos,
             bats: *bat_hand,
             throws: *pitch_hand,
@@ -508,9 +505,6 @@ impl Player {
         self.reset_stats()
     }
 
-    pub(crate) fn update_age(&mut self) {
-        self.age += 1;
-    }
 
     pub(crate) fn get_stats(&self) -> Stats {
         let mut g = 0;
@@ -618,5 +612,59 @@ impl Player {
             p_era,
             p_whip,
         }
+    }
+
+    pub(crate) fn age(&self, year: u32) -> u32 {
+        year - self.born
+    }
+
+    pub(crate) fn fatigue_threshold(&self, year: u32) -> f64 {
+        let mut age_factor = (50u64 - self.age(year).min(49) as u64) * 2;
+        age_factor = age_factor * age_factor;
+        age_factor as f64
+    }
+
+    pub(crate) fn should_retire(&self, year: u32, rng: &mut ThreadRng) -> bool {
+        const MIN_AGE: u32 = 30;
+        const MAX_AGE: u32 = 45;
+        let age_factor = self.age(year).clamp(MIN_AGE, MAX_AGE) - MIN_AGE;
+        let n = (age_factor * age_factor) as f64;
+        let d = ((MAX_AGE - MIN_AGE) * (MAX_AGE - MIN_AGE)) as f64;
+        rng.gen_bool(n / d)
+    }
+}
+
+pub(crate) fn generate_players(players: &mut HashMap<u64, Player>, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
+    let pos_gen = vec![
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Pitcher,
+        Position::Catcher,
+        Position::FirstBase,
+        Position::SecondBase,
+        Position::ThirdBase,
+        Position::ShortStop,
+        Position::LeftField,
+        Position::CenterField,
+        Position::RightField,
+        Position::DesignatedHitter,
+    ];
+
+    let mut player_id = players.keys().max().unwrap_or(&0) + 1;
+    if players.len() < count {
+        players.reserve(count - players.len());
+    }
+
+    for _ in 0..count {
+        let name_first = data.choose_name_first(rng);
+        let name_last = data.choose_name_last(rng);
+        players.insert(player_id, Player::new(name_first, name_last, pos_gen.choose(rng).unwrap(), year, rng));
+        player_id += 1;
     }
 }

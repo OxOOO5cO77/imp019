@@ -7,7 +7,7 @@ use rand::rngs::ThreadRng;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
-use crate::player::{Player, Position, Stat};
+use crate::player::{Player, Position, Stat, generate_players};
 use crate::team::Team;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -24,6 +24,7 @@ enum Mode {
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct Imp019App {
     rng: ThreadRng,
+    data: Data,
     players: HashMap<u64, Player>,
     teams: HashMap<u64, Team>,
     leagues: Vec<League>,
@@ -37,6 +38,7 @@ impl Default for Imp019App {
     fn default() -> Self {
         Imp019App {
             rng: rand::thread_rng(),
+            data: Data::new(),
             players: HashMap::new(),
             teams: HashMap::new(),
             leagues: Vec::new(),
@@ -48,56 +50,16 @@ impl Default for Imp019App {
     }
 }
 
-struct DraftPlayer {
-    id: u64,
-    pos: Position,
-    taken: bool,
-}
-
 impl Imp019App {
-    fn pick_player(players: &mut Vec<DraftPlayer>, pos: Position) -> u64 {
-        if let Some(player) = players.iter_mut().find(|o| !o.taken && o.pos == pos) {
-            player.taken = true;
-            player.id
-        } else {
-            0
-        }
-    }
-
     pub fn new() -> Self {
         let mut rng = rand::thread_rng();
         let data = Data::new();
-        let year = 2030;
+        let year = 2049;
 
-        let mut pos_gen = vec![
-            Position::Catcher,
-            Position::FirstBase,
-            Position::SecondBase,
-            Position::ThirdBase,
-            Position::ShortStop,
-            Position::LeftField,
-            Position::CenterField,
-            Position::RightField,
-            Position::DesignatedHitter,
-        ];
-
-        for _ in 0..9 {
-            pos_gen.push(Position::Pitcher);
-        }
-
-        let mut player_id = 1;
         let mut players = HashMap::new();
-        players.reserve(2000);
-        for pos in pos_gen {
-            for _ in 1..=200 {
-                let name_first = data.choose_name_first(&mut rng);
-                let name_last = data.choose_name_last(&mut rng);
-                players.insert(player_id, Player::new(name_first, name_last, &pos, &mut rng));
-                player_id += 1;
-            }
-        }
+        generate_players(&mut players, 3600, year, &data, &mut rng);
 
-        let mut unused_players = players.iter().map(|(k, v)| DraftPlayer { id: *k, pos: v.pos, taken: false }).collect::<Vec<_>>();
+        let mut available = players.iter().filter(|(_, v)| v.active).collect::<HashMap<_, _>>();
 
         let locs = data.get_locs(&mut HashSet::new(), &mut rng, 60);
         let nicks = data.get_nicks(&mut HashSet::new(), &mut rng, 60);
@@ -109,30 +71,7 @@ impl Imp019App {
             let nick = nicks[team_id].clone();
             let mut team = Team::new(abbr, city, state, nick, year);
 
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::Catcher));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::FirstBase));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::SecondBase));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::ThirdBase));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::ShortStop));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::LeftField));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::CenterField));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::RightField));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::DesignatedHitter));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::Catcher));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::FirstBase));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::SecondBase));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::ThirdBase));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::ShortStop));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::LeftField));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::CenterField));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::RightField));
-            team.players.push(Imp019App::pick_player(&mut unused_players, Position::DesignatedHitter));
-
-            for rot in 0..5 {
-                let p = Imp019App::pick_player(&mut unused_players, Position::Pitcher);
-                team.rotation[rot] = p;
-                team.players.push(p);
-            }
+            team.populate(&mut available, &players);
 
             let team_id = (team_id + 1) as u64;
             teams.insert(team_id, team);
@@ -148,6 +87,7 @@ impl Imp019App {
 
         Imp019App {
             rng,
+            data,
             players,
             teams,
             leagues,
@@ -161,7 +101,7 @@ impl Imp019App {
     pub fn update(&mut self) -> bool {
         let mut result = false;
         for league in &mut self.leagues {
-            result = league.sim(&mut self.teams, &mut self.players, &mut self.rng) || result;
+            result = league.sim(&mut self.teams, &mut self.players, self.year, &mut self.rng) || result;
         }
         result
     }
@@ -207,7 +147,7 @@ impl epi::App for Imp019App {
                 if ui.button("Sim").clicked() {
                     let result = self.update();
                     if !result {
-                        end_of_season(&mut self.leagues, &mut self.teams, &mut self.players, 4, self.year, &mut self.rng);
+                        end_of_season(&mut self.leagues, &mut self.teams, &mut self.players, 4, self.year, &self.data, &mut self.rng);
                         self.year += 1;
                     }
                 };
@@ -487,7 +427,7 @@ impl epi::App for Imp019App {
                         }
                     }
                     ui.label(format!("Name: {}", player.fullname()));
-                    ui.label(format!("Age: {}", player.age));
+                    ui.label(format!("Age: {} Born: {}", player.age(self.year), player.born));
                     ui.label(format!("Pos: {}", player.pos.to_str()));
                     ui.label(format!("Bats: {}", player.bats.to_str()));
                     ui.label(format!("Throws: {}", player.throws.to_str()));

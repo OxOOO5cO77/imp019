@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use rand::rngs::ThreadRng;
 
-use crate::player::Player;
+use crate::data::Data;
+use crate::player::{Player,generate_players};
 use crate::schedule::Schedule;
 use crate::team::Team;
 
@@ -38,12 +39,12 @@ impl League {
         self.schedule = Schedule::new(&self.teams, rng)
     }
 
-    pub(crate) fn sim(&mut self, team_data: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, mut rng: &mut ThreadRng) -> bool {
+    pub(crate) fn sim(&mut self, team_data: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, year: u32, mut rng: &mut ThreadRng) -> bool {
         if let Some(first_idx) = self.schedule.games.iter().position(|o| o.home.r == o.away.r) {
             let teams = self.teams.len();
             for idx in first_idx..(first_idx + (teams / 2)) {
                 if let Some(game) = self.schedule.games.get_mut(idx) {
-                    game.sim(team_data, players, &mut rng);
+                    game.sim(team_data, players, year, &mut rng);
                 }
             }
             return true;
@@ -55,7 +56,7 @@ impl League {
     }
 }
 
-pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, count: usize, year: u32, rng: &mut ThreadRng) {
+pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
     // record history
     for (league_idx, league) in leagues.iter().enumerate() {
         for (rank, team_id) in league.teams.iter().enumerate() {
@@ -89,13 +90,34 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, 
     }
 
     // reset league
-    for league in leagues {
+    for league in leagues.iter_mut() {
         league.reset_schedule(teams, rng);
     }
 
-    //update all player ages
+    //update all players
     for player in players.values_mut() {
-        player.update_age();
         player.fatigue = 0;
+    }
+
+    // retire players
+    let mut retired = 0;
+    for player in players.values_mut().filter(|o| o.active && o.should_retire(year, rng)) {
+        player.active = false;
+        //println!("[Retired] {} Age: {}", player.fullname(), player.age(year));
+        retired += 1;
+    }
+
+    generate_players(players, retired, year, &data, rng);
+
+    // collect available players
+    let mut available = players.iter().filter(|(_, v)| v.active).collect::<HashMap<_, _>>();
+    for team in teams.values_mut() {
+        team.players.retain(|o| players.get(o).unwrap().active);
+        available.retain(|k, _| !team.players.contains(k));
+    }
+
+    // repopulate teams
+    for team in teams.values_mut() {
+        team.populate(&mut available, players);
     }
 }

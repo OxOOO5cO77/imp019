@@ -1,4 +1,9 @@
 use std::cmp::{max, min};
+use std::collections::HashMap;
+
+use enum_iterator::IntoEnumIterator;
+
+use crate::player::{Player, Position};
 
 #[derive(Default, Copy, Clone)]
 pub(crate) struct Results {
@@ -44,14 +49,13 @@ pub(crate) struct Team {
 
 impl Team {
     pub(crate) fn new(abbr: String, city: String, state: String, nickname: String, year: u32) -> Self {
-
         Team {
             abbr,
             city,
             state,
             nickname,
             players: Vec::new(),
-            rotation: [0,0,0,0,0],
+            rotation: [0, 0, 0, 0, 0],
             results: Results::default(),
             history: History {
                 founded: year,
@@ -106,5 +110,29 @@ impl Team {
             win: results.win,
             lose: results.lose,
         });
+    }
+
+    fn players_per_position(pos: Position) -> usize {
+        match pos {
+            Position::Pitcher => 5,
+            _ => 2,
+        }
+    }
+
+    pub(crate) fn populate(&mut self, available: &mut HashMap<&u64, &Player>, players: &HashMap<u64, Player>) {
+        for pos in Position::into_enum_iter() {
+            let cur = self.players.iter().filter(|o| players.get(o).unwrap().pos == pos).count();
+            let max = Self::players_per_position(pos);
+            for _ in cur..max {
+                let p = *available.iter().find(|(_, v)| v.pos == pos).unwrap().0;
+                available.remove(p);
+                self.players.push(*p);
+            }
+        }
+
+        let pitchers = self.players.iter().filter(|o| players.get(o).unwrap().pos == Position::Pitcher).collect::<Vec<_>>();
+        for (idx, p) in pitchers[0..5].iter().enumerate() {
+            self.rotation[idx] = **p;
+        }
     }
 }
