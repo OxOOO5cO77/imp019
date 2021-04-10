@@ -3084,7 +3084,7 @@ Cleveland,37
 Damario,37
 Daymian,37
 Dayson,37
-Dequan,37
+DeQuan,37
 Dodge,37
 Donell,37
 Eamonn,37
@@ -3661,7 +3661,7 @@ Jaevion,29
 Jakaden,29
 Jamire,29
 Jasiyah,29
-Jessejames,29
+Jesse James,29
 Jezreel,29
 Joeseph,29
 Joesiah,29
@@ -3704,7 +3704,7 @@ Wayde,29
 Waylen,29
 Wolf,29
 Zacary,29
-Abubakar,28
+Abu Bakar,28
 Adit,28
 Aidon,28
 Aidric,28
@@ -3910,7 +3910,7 @@ Coulter,26
 Daimon,26
 Dalyn,26
 Damarrion,26
-Dartagnan,26
+D'Artagnan,26
 Davey,26
 Daymon,26
 Demar,26
@@ -4184,7 +4184,7 @@ Linken,24
 Lliam,24
 Lucious,24
 Makye,24
-Markanthony,24
+Mark Anthony,24
 Markeith,24
 Markese,24
 Marvell,24
@@ -5041,7 +5041,7 @@ Zyquan,19
 Aadin,18
 Abdifatah,18
 Abdul Malik,18
-Abubakr,18
+Abu Bakr,18
 Ajax,18
 Akio,18
 Aleister,18
@@ -6523,8 +6523,8 @@ Jeremaih,13
 Jermari,13
 Jermey,13
 Jhony,13
-Joaovictor,13
-Johnnathan,13
+Joao Victor,13
+John Nathan,13
 John William,13
 Jorian,13
 Jospeh,13
@@ -6532,7 +6532,7 @@ Jovonni,13
 Juan David,13
 Juda,13
 Judas,13
-Juliocesar,13
+Julio Cesar,13
 Junius,13
 Juventino,13
 Kaelin,13
@@ -6759,7 +6759,7 @@ Copper,12
 Cosme,12
 Cuyler,12
 Dairon,12
-Dalessandro,12
+D'Alessandro,12
 Dalten,12
 Daltyn,12
 Damacio,12
@@ -7369,12 +7369,12 @@ Kyshaun,11
 Kyston,11
 Lacy,11
 Laithen,11
-Lakendrick,11
+LaKendrick,11
 Lakin,11
 Lamarius,11
 Lamon,11
 Larenzo,11
-Lashaun,11
+LaShaun,11
 Law,11
 Leam,11
 Leeam,11
@@ -7493,7 +7493,7 @@ Shaka,11
 Sherwin,11
 Shota,11
 Sinclair,11
-Sircharles,11
+Sir Charles,11
 Sirron,11
 Sirus,11
 Smyan,11
@@ -7746,7 +7746,7 @@ Erek,10
 Ernan,10
 Esaiah,10
 Espn,10
-Ethanjacob,10
+Ethan Jacob,10
 Evelio,10
 Everhett,10
 Evon,10
@@ -8298,7 +8298,7 @@ Delan,9
 DeMarquis,9
 Demontay,9
 Denys,9
-Dequarius,9
+DeQuarius,9
 Devaun,9
 Devian,9
 Dhanush,9
@@ -8675,7 +8675,7 @@ Shaydon,9
 Shimshon,9
 Shomari,9
 Shyloh,9
-Sirwilliam,9
+Sir William,9
 Skanda,9
 Skylen,9
 Slayden,9
@@ -8935,7 +8935,7 @@ Chaos,8
 Charan,8
 Child,8
 Choyce,8
-Chrisangel,8
+Chris Angel,8
 Chriss,8
 Christoffer,8
 Cobain,8
@@ -9294,7 +9294,7 @@ Kyngston,8
 Kyo,8
 Kyri,8
 Ladell,8
-Laderrick,8
+LaDerrick,8
 Laker,8
 Lamario,8
 Lamberto,8
@@ -9303,8 +9303,8 @@ Lanard,8
 Lando,8
 Lanson,8
 Lantz,8
-Laquinton,8
-Lasean,8
+LaQuinton,8
+LaSean,8
 Latif,8
 Latravion,8
 Lautaro,8
@@ -10550,7 +10550,7 @@ Sascha,7
 Satya,7
 Sayer,7
 Schylar,7
-Seanpatrick,7
+Sean Patrick,7
 Sekai,7
 Selwyn,7
 Sena,7
@@ -11350,7 +11350,7 @@ Javonne,6
 Javoris,6
 Jaxzen,6
 Jayant,6
-Jayanthony,6
+Jay Anthony,6
 Jayd,6
 Jayda,6
 Jaydden,6
@@ -13185,7 +13185,7 @@ Jex,5
 Jeydon,5
 Jeyren,5
 Jhaiden,5
-Jhancarlos,5
+Jhan Carlos,5
 Jiarui,5
 Jihaad,5
 Jilberto,5
