@@ -191,10 +191,10 @@ impl Game {
         self.inning.number = 1;
     }
 
-    fn get_expected_pa(batter: &Player, pitcher: &Player, rng: &mut ThreadRng) -> Expect {
-        *batter.bat_expect.iter().map(|kv| {
+    fn get_expected_pa(batter: &HashMap<Expect,f64>, pitcher: &HashMap<Expect,f64>, rng: &mut ThreadRng) -> Expect {
+        *batter.iter().map(|kv| {
             let bval = kv.1;
-            let pval = pitcher.pit_expect.get(&kv.0).unwrap_or(&0.0);
+            let pval = pitcher.get(&kv.0).unwrap_or(&0.0);
             let lval = LEAGUE_AVG.get(&kv.0).unwrap_or(&0.0);
             let res = (Game::matchup_morey_z(*bval, *pval, *lval) * 1000.0) as u32;
             (kv.0, res)
@@ -237,7 +237,11 @@ impl Game {
 
             let batter_id = bat_scoreboard.bo[bat_scoreboard.ab].player;
             let batter = players.get(&batter_id).unwrap();
-            let result = Game::get_expected_pa(batter, pitcher, rng);
+
+            let batter_expect = batter.bat_expect_vs(pitcher.throws);
+            let pitcher_expect = pitcher.pit_expect_vs(batter.bats);
+
+            let result = Game::get_expected_pa(batter_expect, pitcher_expect, rng);
             match result {
                 Expect::Single => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 1),
                 Expect::Double => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 2),
@@ -317,9 +321,7 @@ impl Schedule {
                         let game = raw_matchups.remove(idx);
                         let other_team = if game.home.id == team { game.away.id } else { game.home.id };
                         matchups.push(game);
-                        if let Some(other_pos) = teams_to_pick.iter().position(|&o| o == other_team) {
-                            teams_to_pick.remove(other_pos);
-                        }
+                        teams_to_pick.retain(|&o| o != other_team );
                     }
                 }
             }

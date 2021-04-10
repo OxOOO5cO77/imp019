@@ -302,8 +302,8 @@ pub(crate) struct Player {
     pub(crate) pos: Position,
     pub(crate) bats: Handedness,
     pub(crate) throws: Handedness,
-    pub(crate) bat_expect: HashMap<Expect, f64>,
-    pub(crate) pit_expect: HashMap<Expect, f64>,
+    pub(crate) bat_expect: (HashMap<Expect, f64>, HashMap<Expect, f64>),
+    pub(crate) pit_expect: (HashMap<Expect, f64>, HashMap<Expect, f64>),
     stat_stream: Vec<Stat>,
     pub(crate) historical: Vec<HistoricalStats>,
     pub(crate) fatigue: u16,
@@ -395,12 +395,13 @@ impl Player {
 
     fn generate_bat_expect(rng: &mut ThreadRng) -> HashMap<Expect, f64> {
         let target_obp = gen_normal(rng, 0.320, 0.036);
-        let h1b = gen_normal(rng, 96.6, 21.5);
+
+        let h1b = gen_gamma(rng, 4.89051721563733, 19.7826596218742);
         let h2b = gen_normal(rng, 0.342, 0.137) * h1b;
         let h3b = gen_normal(rng, 0.0985, 0.0666) * h2b;
-        let hr = gen_gamma(rng, 1.75, 9.0);
-        let bb = gen_normal(rng, 59.44, 18.71);
-        let hbp = gen_normal(rng, 4.0, 4.0);
+        let hr = gen_gamma(rng, 12.2812930750413, 2.09953872829662);
+        let bb = gen_gamma(rng, 8.34381266257955, 7.16855765752819);
+        let hbp = gen_gamma(rng, 18.8629868507638, 0.404463971747468);
         let so = gen_normal(rng, 0.1914556061, 0.02597102753);
 
         let expect = ExpectPct {
@@ -419,12 +420,13 @@ impl Player {
 
     fn generate_pit_expect(rng: &mut ThreadRng) -> HashMap<Expect, f64> {
         let target_obp = gen_normal(rng, 0.321, 0.039);
-        let h1b = gen_normal(rng, 96.6, 21.5);
-        let h2b = gen_normal(rng, 0.342, 0.137) * h1b;
+        let h = gen_gamma(rng, 3.58229424925063, 43.691697161455);
+        let h2b = gen_normal(rng, 0.342, 0.137) * h;
         let h3b = gen_normal(rng, 0.0985, 0.0666) * h2b;
-        let hr = gen_normal(rng, 12.812, 8.058196141);
-        let bb = gen_normal(rng, 29.45, 15.42658287);
-        let hbp = gen_normal(rng, 3.624, 2.946181252);
+        let h1b = h - h2b - h3b;
+        let hr = gen_gamma(rng, 3.30666140034948, 7.53788040691485);
+        let bb = gen_gamma(rng, 6.64203372642545, 9.13486625765644);
+        let hbp = gen_normal(rng, 7.261499514, 5.272573316);
         let so = gen_normal(rng, 0.1928022279, 0.02819196439);
 
         let expect = ExpectPct {
@@ -458,8 +460,9 @@ impl Player {
 
         let pitch_hand = &pitching_hand.choose_weighted(rng, |o| o.1).unwrap().0;
 
-        let bat_expect = Player::generate_bat_expect(rng);
-        let pit_expect = Player::generate_pit_expect(rng);
+
+        let bat_expect = (Player::generate_bat_expect(rng), Player::generate_bat_expect(rng));
+        let pit_expect = (Player::generate_pit_expect(rng), Player::generate_pit_expect(rng));
 
         Player {
             active: true,
@@ -505,6 +508,12 @@ impl Player {
         self.reset_stats()
     }
 
+    pub(crate) fn bat_expect_vs(&self, throws: Handedness) -> &HashMap<Expect, f64> {
+        if throws == Handedness::Left { &self.bat_expect.0 } else { &self.bat_expect.1 }
+    }
+    pub(crate) fn pit_expect_vs(&self, bats: Handedness) -> &HashMap<Expect, f64> {
+        if bats == Handedness::Left { &self.pit_expect.0 } else { &self.pit_expect.1 }
+    }
 
     pub(crate) fn get_stats(&self) -> Stats {
         let mut g = 0;
