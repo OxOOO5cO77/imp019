@@ -7,15 +7,16 @@ use rand::rngs::ThreadRng;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
-use crate::player::{Player, Position, Stat, generate_players};
-use crate::team::Team;
+use crate::player::{generate_players, PlayerId, PlayerMap, Position, Stat};
+use crate::team::{Team, TeamId, TeamMap};
+use crate::player;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Mode {
     Schedule,
     Standings,
-    Team(u64),
-    Player(Option<u64>, u64),
+    Team(TeamId),
+    Player(Option<TeamId>, PlayerId),
     BatLeaders(Stat, bool),
     PitLeaders(Stat, bool),
 }
@@ -25,8 +26,8 @@ enum Mode {
 pub struct Imp019App {
     rng: ThreadRng,
     data: Data,
-    players: HashMap<u64, Player>,
-    teams: HashMap<u64, Team>,
+    players: PlayerMap,
+    teams: TeamMap,
     leagues: Vec<League>,
     year: u32,
     disp_league: usize,
@@ -59,7 +60,7 @@ impl Imp019App {
         let mut players = HashMap::new();
         generate_players(&mut players, 3600, year, &data, &mut rng);
 
-        let mut available = players.iter().filter(|(_, v)| v.active).collect::<HashMap<_, _>>();
+        let mut available = player::collect_all_active(&players);
 
         let locs = data.get_locs(&mut HashSet::new(), &mut rng, 60);
         let nicks = data.get_nicks(&mut HashSet::new(), &mut rng, 60);
@@ -73,7 +74,7 @@ impl Imp019App {
 
             team.populate(&mut available, &players);
 
-            let team_id = (team_id + 1) as u64;
+            let team_id = (team_id + 1) as TeamId;
             teams.insert(team_id, team);
         }
 
@@ -482,7 +483,6 @@ impl epi::App for Imp019App {
                                 ui.end_row();
                             }
                         });
-
                     } else {
                         ui.heading("Pitching History");
                         egui::Grid::new("phistory").striped(true).show(ui, |ui| {

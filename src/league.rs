@@ -1,20 +1,19 @@
-use std::collections::HashMap;
-
 use rand::rngs::ThreadRng;
 
 use crate::data::Data;
-use crate::player::{Player,generate_players};
+use crate::player;
+use crate::player::PlayerMap;
 use crate::schedule::Schedule;
-use crate::team::Team;
+use crate::team::{TeamId, TeamMap};
 
 pub struct League {
     id: u32,
-    pub(crate) teams: Vec<u64>,
+    pub(crate) teams: Vec<TeamId>,
     pub(crate) schedule: Schedule,
 }
 
 impl League {
-    pub(crate) fn new(id: u32, team_count: usize, remaining_teams: &mut Vec<u64>, rng: &mut ThreadRng) -> League {
+    pub(crate) fn new(id: u32, team_count: usize, remaining_teams: &mut Vec<TeamId>, rng: &mut ThreadRng) -> League {
         let mut teams = Vec::new();
         for _ in 0..team_count {
             if let Some(team) = remaining_teams.pop() {
@@ -24,14 +23,14 @@ impl League {
 
         let schedule = Schedule::new(&teams, rng);
 
-        League {
+        Self {
             id,
             teams,
             schedule,
         }
     }
 
-    pub(crate) fn reset_schedule(&mut self, teams: &mut HashMap<u64, Team>, rng: &mut ThreadRng) {
+    pub(crate) fn reset_schedule(&mut self, teams: &mut TeamMap, rng: &mut ThreadRng) {
         for team_id in &self.teams {
             let team = teams.get_mut(team_id).unwrap();
             team.results.reset();
@@ -39,7 +38,7 @@ impl League {
         self.schedule = Schedule::new(&self.teams, rng)
     }
 
-    pub(crate) fn sim(&mut self, team_data: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, year: u32, mut rng: &mut ThreadRng) -> bool {
+    pub(crate) fn sim(&mut self, team_data: &mut TeamMap, players: &mut PlayerMap, year: u32, mut rng: &mut ThreadRng) -> bool {
         if let Some(first_idx) = self.schedule.games.iter().position(|o| o.home.r == o.away.r) {
             let teams = self.teams.len();
             for idx in first_idx..(first_idx + (teams / 2)) {
@@ -56,7 +55,7 @@ impl League {
     }
 }
 
-pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
+pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut TeamMap, players: &mut PlayerMap, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
     // record history
     for (league_idx, league) in leagues.iter().enumerate() {
         for (rank, team_id) in league.teams.iter().enumerate() {
@@ -107,10 +106,10 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut HashMap<u64, 
         retired += 1;
     }
 
-    generate_players(players, retired, year, &data, rng);
+    player::generate_players(players, retired, year, &data, rng);
 
     // collect available players
-    let mut available = players.iter().filter(|(_, v)| v.active).collect::<HashMap<_, _>>();
+    let mut available = player::collect_all_active(players);
     for team in teams.values_mut() {
         team.players.retain(|o| players.get(o).unwrap().active);
         available.retain(|k, _| !team.players.contains(k));

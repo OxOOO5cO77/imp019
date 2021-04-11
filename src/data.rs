@@ -12,7 +12,7 @@ pub(crate) struct Data {
 
 impl Default for Data {
     fn default() -> Self {
-        Data {
+        Self {
             loc: Vec::new(),
             nick: Vec::new(),
             names_first: Vec::new(),
@@ -30,13 +30,13 @@ fn weighted(in_str: &str) -> Option<(String, u32)> {
 }
 
 impl Data {
-    pub(crate) fn new() -> Data {
+    pub(crate) fn new() -> Self {
         let loc = include_str!("../data/loc.txt").lines().map(|o| o.to_string()).collect();
         let nick = include_str!("../data/nick.txt").lines().map(|o| o.to_string()).collect();
         let names_first = include_str!("../data/names_first.txt").lines().map(weighted).filter_map(|o| o).collect();
         let names_last = include_str!("../data/names_last.txt").lines().map(weighted).filter_map(|o| o).collect();
 
-        Data {
+        Self {
             loc,
             nick,
             names_first,

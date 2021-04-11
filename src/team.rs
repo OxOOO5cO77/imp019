@@ -3,7 +3,10 @@ use std::collections::HashMap;
 
 use enum_iterator::IntoEnumIterator;
 
-use crate::player::{Player, Position};
+use crate::player::{Position, PlayerId, PlayerMap, PlayerRefMap};
+
+pub(crate) type TeamId = u64;
+pub(crate) type TeamMap = HashMap<TeamId, Team>;
 
 #[derive(Default, Copy, Clone)]
 pub(crate) struct Results {
@@ -41,15 +44,15 @@ pub(crate) struct Team {
     city: String,
     state: String,
     nickname: String,
-    pub(crate) players: Vec<u64>,
-    pub(crate) rotation: [u64; 5],
+    pub(crate) players: Vec<PlayerId>,
+    pub(crate) rotation: [PlayerId; 5],
     pub(crate) results: Results,
     pub(crate) history: History,
 }
 
 impl Team {
     pub(crate) fn new(abbr: String, city: String, state: String, nickname: String, year: u32) -> Self {
-        Team {
+        Self {
             abbr,
             city,
             state,
@@ -119,14 +122,14 @@ impl Team {
         }
     }
 
-    pub(crate) fn populate(&mut self, available: &mut HashMap<&u64, &Player>, players: &HashMap<u64, Player>) {
+    pub(crate) fn populate(&mut self, available: &mut PlayerRefMap<'_>, players: &PlayerMap) {
         for pos in Position::into_enum_iter() {
             let cur = self.players.iter().filter(|o| players.get(o).unwrap().pos == pos).count();
             let max = Self::players_per_position(pos);
             for _ in cur..max {
                 let p = *available.iter().find(|(_, v)| v.pos == pos).unwrap().0;
-                available.remove(p);
-                self.players.push(*p);
+                available.remove(&p);
+                self.players.push(p);
             }
         }
 

@@ -5,25 +5,25 @@ use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
-use crate::player::{Expect, ExpectMap, Handedness, Player, Position, Stat};
-use crate::team::Team;
+use crate::player::{Expect, ExpectMap, Handedness, Player, Position, Stat, PlayerId, PlayerMap};
+use crate::team::{TeamId, TeamMap};
 
 #[derive(Copy, Clone, Default)]
 struct RunnerInfo {
-    runner: u64,
-    pitcher: u64,
+    runner: PlayerId,
+    pitcher: PlayerId,
     earned: bool,
 }
 
 #[derive(Clone, Default)]
 struct DefenseInfo {
-    player: u64,
+    player: PlayerId,
     pos: Position,
 }
 
 #[derive(Default)]
 pub(crate) struct Scoreboard {
-    pub(crate) id: u64,
+    pub(crate) id: TeamId,
     onbase: [Option<RunnerInfo>; 4],
     runs_in: Vec<RunnerInfo>,
     pub(crate) r: u8,
@@ -31,19 +31,19 @@ pub(crate) struct Scoreboard {
 //    pub(crate) e: u8,
     bo: [DefenseInfo; 9],
     ab: usize,
-    pitcher_of_record: u64,
+    pitcher_of_record: PlayerId,
 
 }
 
 impl Scoreboard {
-    fn new(id: u64) -> Self {
-        Scoreboard {
+    fn new(id: TeamId) -> Self {
+        Self {
             id,
-            ..Scoreboard::default()
+            ..Self::default()
         }
     }
 
-    fn advance_onbase(&mut self, batter: u64, pitcher: u64, earned: bool, amt: u8) -> u8 {
+    fn advance_onbase(&mut self, batter: PlayerId, pitcher: PlayerId, earned: bool, amt: u8) -> u8 {
         self.onbase[0] = Some(RunnerInfo { runner: batter, pitcher, earned });
         for _ in 0..amt {
             if self.onbase[1].is_some() {
@@ -63,7 +63,7 @@ impl Scoreboard {
         0
     }
 
-    fn player_at_pos(&self, pos: Position) -> u64 {
+    fn player_at_pos(&self, pos: Position) -> PlayerId {
         if pos == Position::Pitcher { self.pitcher_of_record } else { self.bo.iter().find(|o| o.pos == pos).unwrap().player }
     }
 
@@ -82,7 +82,7 @@ enum InningHalf {
 }
 
 impl Default for InningHalf {
-    fn default() -> Self { InningHalf::Top }
+    fn default() -> Self { Self::Top }
 }
 
 #[derive(Default)]
@@ -117,8 +117,8 @@ lazy_static! {
 
 
 impl Game {
-    fn new(home: u64, away: u64) -> Self {
-        Game {
+    fn new(home: TeamId, away: TeamId) -> Self {
+        Self {
             home: Scoreboard::new(home),
             away: Scoreboard::new(away),
             inning: Inning {
@@ -146,15 +146,15 @@ impl Game {
         (left * sqrt_league) + league
     }
 
-    fn setup_pitcher(players: &mut HashMap<u64, Player>, teams: &mut HashMap<u64, Team>, scoreboard: &mut Scoreboard) -> Handedness {
+    fn setup_pitcher(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard) -> Handedness {
         let team = teams.get_mut(&scoreboard.id).unwrap();
         scoreboard.pitcher_of_record = team.rotation[0];
-        let pitcher = Game::record_stat(players, team.rotation[0], Stat::Gs);
+        let pitcher = Self::record_stat(players, team.rotation[0], Stat::Gs);
         team.rotation.rotate_left(1);
         pitcher.throws
     }
 
-    fn setup_bo(players: &mut HashMap<u64, Player>, teams: &mut HashMap<u64, Team>, scoreboard: &mut Scoreboard, year: u32, rng: &mut ThreadRng) {
+    fn setup_bo(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard, year: u32, rng: &mut ThreadRng) {
         let team = teams.get_mut(&scoreboard.id).unwrap();
         let mut team_players = team.players.iter().map(|o| (*o, players.get(o).unwrap())).filter(|o| o.1.pos != Position::Pitcher).collect::<Vec<_>>();
         team_players.sort_by_cached_key(|o| o.1.get_stats().b_obp);
@@ -182,12 +182,12 @@ impl Game {
         }
 
         for starter in scoreboard.bo.iter() {
-            let player = Game::record_stat(players, starter.player, Stat::Gs);
+            let player = Self::record_stat(players, starter.player, Stat::Gs);
             player.fatigue += 1;
         }
     }
 
-    fn setup_game(&mut self, players: &mut HashMap<u64, Player>, teams: &mut HashMap<u64, Team>, year: u32, rng: &mut ThreadRng) {
+    fn setup_game(&mut self, players: &mut PlayerMap, teams: &mut TeamMap, year: u32, rng: &mut ThreadRng) {
         let _home_hand = Self::setup_pitcher(players, teams, &mut self.home);
         let _away_hand = Self::setup_pitcher(players, teams, &mut self.away);
 
@@ -202,12 +202,12 @@ impl Game {
             let bval = kv.1;
             let pval = pitcher.get(&kv.0).unwrap_or(&0.0);
             let lval = LEAGUE_AVG.get(&kv.0).unwrap_or(&0.0);
-            let res = (Game::matchup_morey_z(*bval, *pval, *lval) * 1000.0) as u32;
+            let res = (Self::matchup_morey_z(*bval, *pval, *lval) * 1000.0) as u32;
             (kv.0, res)
         }).collect::<Vec<_>>().choose_weighted(rng, |o| o.1).unwrap().0
     }
 
-    fn record_stat(players: &mut HashMap<u64, Player>, player_id: u64, stat: Stat) -> &mut Player {
+    fn record_stat(players: &mut PlayerMap, player_id: PlayerId, stat: Stat) -> &mut Player {
         let player = players.get_mut(&player_id).unwrap();
         player.record_stat(stat);
         match stat {
@@ -223,7 +223,7 @@ impl Game {
         if self.is_away_ab() { (&mut self.away, &self.home) } else { (&mut self.home, &self.away) }
     }
 
-    fn check_for_error(players: &mut HashMap<u64, Player>, fielder_id: u64, result: Expect, rng: &mut ThreadRng) -> Expect {
+    fn check_for_error(players: &mut PlayerMap, fielder_id: PlayerId, result: Expect, rng: &mut ThreadRng) -> Expect {
         let fielder = players.get(&fielder_id).unwrap();
         if result == Expect::Out && fielder.check_for_e(rng) {
             Expect::Error
@@ -232,7 +232,7 @@ impl Game {
         }
     }
 
-    pub(crate) fn sim(&mut self, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, year: u32, rng: &mut ThreadRng) {
+    pub(crate) fn sim(&mut self, teams: &mut TeamMap, players: &mut PlayerMap, year: u32, rng: &mut ThreadRng) {
         self.setup_game(players, teams, year, rng);
 
         while !self.complete() {
@@ -338,7 +338,7 @@ pub(crate) struct Schedule {
 }
 
 impl Schedule {
-    pub(crate) fn new(teams: &[u64], rng: &mut ThreadRng) -> Self {
+    pub(crate) fn new(teams: &[TeamId], rng: &mut ThreadRng) -> Self {
         let mut raw_matchups = Vec::new();
         let team_count = teams.len();
         raw_matchups.reserve(team_count * (team_count - 1));
@@ -380,7 +380,7 @@ impl Schedule {
             }
         }
 
-        Schedule {
+        Self {
             games
         }
     }

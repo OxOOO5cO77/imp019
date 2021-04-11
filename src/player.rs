@@ -7,6 +7,11 @@ use rand::seq::SliceRandom;
 use rand_distr::{Distribution, Gamma, Normal};
 
 use crate::data::Data;
+use crate::team::TeamId;
+
+pub(crate) type PlayerId = u64;
+pub(crate) type PlayerMap = HashMap<PlayerId, Player>;
+pub(crate) type PlayerRefMap<'a> = HashMap<PlayerId, &'a Player>;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, IntoEnumIterator)]
 pub(crate) enum Position {
@@ -24,7 +29,7 @@ pub(crate) enum Position {
 
 impl Default for Position {
     fn default() -> Self {
-        Position::Pitcher
+        Self::Pitcher
     }
 }
 
@@ -223,7 +228,7 @@ impl Stats {
 pub(crate) struct HistoricalStats {
     pub(crate) year: u32,
     pub(crate) league: u32,
-    pub(crate) team: u64,
+    pub(crate) team: TeamId,
     pub(crate) stats: HashMap<Stat, u32>,
 }
 
@@ -351,28 +356,28 @@ pub(crate) enum Expect {
 impl Expect {
     pub(crate) fn to_batting_stat(&self) -> Stat {
         match self {
-            Expect::Single => Stat::B1b,
-            Expect::Double => Stat::B2b,
-            Expect::Triple => Stat::B3b,
-            Expect::HomeRun => Stat::Bhr,
-            Expect::Walk => Stat::Bbb,
-            Expect::HitByPitch => Stat::Bhbp,
-            Expect::Strikeout => Stat::Bso,
-            Expect::Out => Stat::Bo,
-            Expect::Error => Stat::Bo,
+            Self::Single => Stat::B1b,
+            Self::Double => Stat::B2b,
+            Self::Triple => Stat::B3b,
+            Self::HomeRun => Stat::Bhr,
+            Self::Walk => Stat::Bbb,
+            Self::HitByPitch => Stat::Bhbp,
+            Self::Strikeout => Stat::Bso,
+            Self::Out => Stat::Bo,
+            Self::Error => Stat::Bo,
         }
     }
     pub(crate) fn to_pitching_stat(&self) -> Stat {
         match self {
-            Expect::Single => Stat::P1b,
-            Expect::Double => Stat::P2b,
-            Expect::Triple => Stat::P3b,
-            Expect::HomeRun => Stat::Phr,
-            Expect::Walk => Stat::Pbb,
-            Expect::HitByPitch => Stat::Phbp,
-            Expect::Strikeout => Stat::Pso,
-            Expect::Out => Stat::Po,
-            Expect::Error => Stat::Po,
+            Self::Single => Stat::P1b,
+            Self::Double => Stat::P2b,
+            Self::Triple => Stat::P3b,
+            Self::HomeRun => Stat::Phr,
+            Self::Walk => Stat::Pbb,
+            Self::HitByPitch => Stat::Phbp,
+            Self::Strikeout => Stat::Pso,
+            Self::Out => Stat::Po,
+            Self::Error => Stat::Po,
         }
     }
 }
@@ -441,7 +446,7 @@ impl Player {
             e,
         };
 
-        Player::generate_expect(expect)
+        Self::generate_expect(expect)
     }
 
     fn generate_pit_expect(rng: &mut ThreadRng) -> ExpectMap {
@@ -467,7 +472,7 @@ impl Player {
             e: 0.0,
         };
 
-        Player::generate_expect(expect)
+        Self::generate_expect(expect)
     }
 
 
@@ -624,13 +629,13 @@ impl Player {
         let pitch_hand = &pitching_hand.choose_weighted(rng, |o| o.1).unwrap().0;
 
 
-        let bat_expect = (Player::generate_bat_expect(rng), Player::generate_bat_expect(rng));
-        let pit_expect = (Player::generate_pit_expect(rng), Player::generate_pit_expect(rng));
+        let bat_expect = (Self::generate_bat_expect(rng), Self::generate_bat_expect(rng));
+        let pit_expect = (Self::generate_pit_expect(rng), Self::generate_pit_expect(rng));
 
-        let bat_spray = Player::generate_bat_spray(rng, pos);
-        let pit_spray = Player::generate_pit_spray(rng, pos);
+        let bat_spray = Self::generate_bat_spray(rng, pos);
+        let pit_spray = Self::generate_pit_spray(rng, pos);
 
-        Player {
+        Self {
             active: true,
             name_first,
             name_last,
@@ -660,7 +665,7 @@ impl Player {
         self.stat_stream.push(stat);
     }
 
-    pub(crate) fn record_stat_history(&mut self, year: u32, league: u32, team_id: u64) {
+    pub(crate) fn record_stat_history(&mut self, year: u32, league: u32, team_id: TeamId) {
         let mut historical = HistoricalStats {
             year,
             league,
@@ -817,7 +822,7 @@ impl Player {
     }
 }
 
-pub(crate) fn generate_players(players: &mut HashMap<u64, Player>, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
+pub(crate) fn generate_players(players: &mut PlayerMap, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
     let pos_gen = vec![
         Position::Pitcher,
         Position::Pitcher,
@@ -850,4 +855,11 @@ pub(crate) fn generate_players(players: &mut HashMap<u64, Player>, count: usize,
         players.insert(player_id, Player::new(name_first, name_last, pos_gen.choose(rng).unwrap(), year, rng));
         player_id += 1;
     }
+}
+
+pub(crate) fn collect_all_active(players: &PlayerMap) -> PlayerRefMap<'_> {
+    players.iter()
+        .filter(|(_, v)| v.active)
+        .map(|(k,v)| (*k,v))
+        .collect()
 }
