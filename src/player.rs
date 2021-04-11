@@ -8,7 +8,7 @@ use rand_distr::{Distribution, Gamma, Normal};
 
 use crate::data::Data;
 
-#[derive(Copy, Clone, PartialEq, IntoEnumIterator)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, IntoEnumIterator)]
 pub(crate) enum Position {
     Pitcher,
     Catcher,
@@ -104,6 +104,9 @@ pub(crate) enum Stat {
     Pslg,
     Pera,
     Pwhip,
+    // recorded
+    Fpo,
+    Fe,
 }
 
 fn div1000_or_0(n: u32, d: u32) -> u32 {
@@ -167,6 +170,9 @@ pub(crate) struct Stats {
     pub(crate) p_slg: u32,
     pub(crate) p_era: u32,
     pub(crate) p_whip: u32,
+
+    pub(crate) f_po: u32,
+    pub(crate) f_e: u32,
 }
 
 impl Stats {
@@ -207,6 +213,8 @@ impl Stats {
             Stat::Pslg => self.p_slg,
             Stat::Pera => self.p_era,
             Stat::Pwhip => self.p_whip,
+            Stat::Fpo => self.f_po,
+            Stat::Fe => self.f_e,
         }
     }
 }
@@ -216,43 +224,46 @@ pub(crate) struct HistoricalStats {
     pub(crate) year: u32,
     pub(crate) league: u32,
     pub(crate) team: u64,
-    pub(crate) batting_stats: HashMap<Stat, u32>,
+    pub(crate) stats: HashMap<Stat, u32>,
 }
 
 impl HistoricalStats {
     pub(crate) fn get_stats(&self) -> Stats {
-        let g = *self.batting_stats.get(&Stat::G).unwrap_or(&0);
-        let gs = *self.batting_stats.get(&Stat::Gs).unwrap_or(&0);
+        let g = *self.stats.get(&Stat::G).unwrap_or(&0);
+        let gs = *self.stats.get(&Stat::Gs).unwrap_or(&0);
 
-        let b_1b = *self.batting_stats.get(&Stat::B1b).unwrap_or(&0);
-        let b_2b = *self.batting_stats.get(&Stat::B2b).unwrap_or(&0);
-        let b_3b = *self.batting_stats.get(&Stat::B3b).unwrap_or(&0);
-        let b_hr = *self.batting_stats.get(&Stat::Bhr).unwrap_or(&0);
-        let b_bb = *self.batting_stats.get(&Stat::Bbb).unwrap_or(&0);
-        let b_hbp = *self.batting_stats.get(&Stat::Bhbp).unwrap_or(&0);
-        let b_so = *self.batting_stats.get(&Stat::Bso).unwrap_or(&0);
-        let b_o = *self.batting_stats.get(&Stat::Bo).unwrap_or(&0);
-        let b_r = *self.batting_stats.get(&Stat::Br).unwrap_or(&0);
-        let b_rbi = *self.batting_stats.get(&Stat::Brbi).unwrap_or(&0);
+        let b_1b = *self.stats.get(&Stat::B1b).unwrap_or(&0);
+        let b_2b = *self.stats.get(&Stat::B2b).unwrap_or(&0);
+        let b_3b = *self.stats.get(&Stat::B3b).unwrap_or(&0);
+        let b_hr = *self.stats.get(&Stat::Bhr).unwrap_or(&0);
+        let b_bb = *self.stats.get(&Stat::Bbb).unwrap_or(&0);
+        let b_hbp = *self.stats.get(&Stat::Bhbp).unwrap_or(&0);
+        let b_so = *self.stats.get(&Stat::Bso).unwrap_or(&0);
+        let b_o = *self.stats.get(&Stat::Bo).unwrap_or(&0);
+        let b_r = *self.stats.get(&Stat::Br).unwrap_or(&0);
+        let b_rbi = *self.stats.get(&Stat::Brbi).unwrap_or(&0);
 
         let b_h = b_1b + b_2b + b_3b + b_hr;
         let b_ab = b_h + b_o;
         let b_pa = b_ab + b_bb + b_hbp;
 
-        let p_1b = *self.batting_stats.get(&Stat::P1b).unwrap_or(&0);
-        let p_2b = *self.batting_stats.get(&Stat::P2b).unwrap_or(&0);
-        let p_3b = *self.batting_stats.get(&Stat::P3b).unwrap_or(&0);
-        let p_hr = *self.batting_stats.get(&Stat::Phr).unwrap_or(&0);
-        let p_bb = *self.batting_stats.get(&Stat::Pbb).unwrap_or(&0);
-        let p_hbp = *self.batting_stats.get(&Stat::Phbp).unwrap_or(&0);
-        let p_so = *self.batting_stats.get(&Stat::Pso).unwrap_or(&0);
-        let p_o = *self.batting_stats.get(&Stat::Po).unwrap_or(&0);
-        let p_r = *self.batting_stats.get(&Stat::Pr).unwrap_or(&0);
-        let p_er = *self.batting_stats.get(&Stat::Per).unwrap_or(&0);
+        let p_1b = *self.stats.get(&Stat::P1b).unwrap_or(&0);
+        let p_2b = *self.stats.get(&Stat::P2b).unwrap_or(&0);
+        let p_3b = *self.stats.get(&Stat::P3b).unwrap_or(&0);
+        let p_hr = *self.stats.get(&Stat::Phr).unwrap_or(&0);
+        let p_bb = *self.stats.get(&Stat::Pbb).unwrap_or(&0);
+        let p_hbp = *self.stats.get(&Stat::Phbp).unwrap_or(&0);
+        let p_so = *self.stats.get(&Stat::Pso).unwrap_or(&0);
+        let p_o = *self.stats.get(&Stat::Po).unwrap_or(&0);
+        let p_r = *self.stats.get(&Stat::Pr).unwrap_or(&0);
+        let p_er = *self.stats.get(&Stat::Per).unwrap_or(&0);
 
         let p_h = p_1b + p_2b + p_3b + p_hr;
         let p_ab = p_h + p_o;
         let p_bf = p_ab + p_bb + p_hbp;
+
+        let f_po = *self.stats.get(&Stat::Fpo).unwrap_or(&0);
+        let f_e = *self.stats.get(&Stat::Fe).unwrap_or(&0);
 
         Stats {
             g,
@@ -290,9 +301,14 @@ impl HistoricalStats {
             p_slg: calc_slg1000(p_ab, p_1b, p_2b, p_3b, p_hr),
             p_era: calc_era1000(p_er, p_o),
             p_whip: calc_whip1000(p_h, p_bb, p_o),
+            f_po,
+            f_e,
         }
     }
 }
+
+pub(crate) type ExpectMap = HashMap<Expect, f64>;
+type SprayChart = HashMap<Expect, HashMap<Position, u32>>;
 
 pub(crate) struct Player {
     pub(crate) active: bool,
@@ -302,8 +318,10 @@ pub(crate) struct Player {
     pub(crate) pos: Position,
     pub(crate) bats: Handedness,
     pub(crate) throws: Handedness,
-    pub(crate) bat_expect: (HashMap<Expect, f64>, HashMap<Expect, f64>),
-    pub(crate) pit_expect: (HashMap<Expect, f64>, HashMap<Expect, f64>),
+    pub(crate) bat_expect: (ExpectMap, ExpectMap),
+    pub(crate) bat_spray: SprayChart,
+    pub(crate) pit_expect: (ExpectMap, ExpectMap),
+    pub(crate) pit_spray: SprayChart,
     stat_stream: Vec<Stat>,
     pub(crate) historical: Vec<HistoricalStats>,
     pub(crate) fatigue: u16,
@@ -327,6 +345,7 @@ pub(crate) enum Expect {
     HitByPitch,
     Strikeout,
     Out,
+    Error,
 }
 
 impl Expect {
@@ -340,6 +359,7 @@ impl Expect {
             Expect::HitByPitch => Stat::Bhbp,
             Expect::Strikeout => Stat::Bso,
             Expect::Out => Stat::Bo,
+            Expect::Error => Stat::Bo,
         }
     }
     pub(crate) fn to_pitching_stat(&self) -> Stat {
@@ -352,11 +372,12 @@ impl Expect {
             Expect::HitByPitch => Stat::Phbp,
             Expect::Strikeout => Stat::Pso,
             Expect::Out => Stat::Po,
+            Expect::Error => Stat::Po,
         }
     }
 }
 
-struct ExpectPct {
+struct ExpectRaw {
     target_obp: f64,
     h1b: f64,
     h2b: f64,
@@ -365,10 +386,11 @@ struct ExpectPct {
     bb: f64,
     hbp: f64,
     so: f64,
+    e: f64,
 }
 
 impl Player {
-    fn generate_expect(expect_pct: ExpectPct) -> HashMap<Expect, f64> {
+    fn generate_expect(expect_pct: ExpectRaw) -> ExpectMap {
         let obp_total = expect_pct.h1b + expect_pct.h2b + expect_pct.h3b + expect_pct.hr + expect_pct.bb + expect_pct.hbp;
         let h1b = (expect_pct.h1b / obp_total) * expect_pct.target_obp;
         let h2b = (expect_pct.h2b / obp_total) * expect_pct.target_obp;
@@ -379,6 +401,7 @@ impl Player {
 
         let so = expect_pct.so;
         let o = 1.0 - expect_pct.target_obp - so;
+        let e = expect_pct.e;
 
         let mut expect = HashMap::new();
         expect.insert(Expect::Single, h1b);
@@ -389,11 +412,12 @@ impl Player {
         expect.insert(Expect::HitByPitch, hbp);
         expect.insert(Expect::Strikeout, so);
         expect.insert(Expect::Out, o);
+        expect.insert(Expect::Error, e);
 
         expect
     }
 
-    fn generate_bat_expect(rng: &mut ThreadRng) -> HashMap<Expect, f64> {
+    fn generate_bat_expect(rng: &mut ThreadRng) -> ExpectMap {
         let target_obp = gen_normal(rng, 0.320, 0.036);
 
         let h1b = gen_gamma(rng, 4.89051721563733, 19.7826596218742);
@@ -403,8 +427,9 @@ impl Player {
         let bb = gen_gamma(rng, 8.34381266257955, 7.16855765752819);
         let hbp = gen_gamma(rng, 18.8629868507638, 0.404463971747468);
         let so = gen_normal(rng, 0.1914556061, 0.02597102753);
+        let e = (1.0 - gen_normal(rng, 0.9765828221, 0.9765828221).clamp(0.0, 1.0) ) / 3.0;
 
-        let expect = ExpectPct {
+        let expect = ExpectRaw {
             target_obp,
             h1b,
             h2b,
@@ -413,12 +438,13 @@ impl Player {
             bb,
             hbp,
             so,
+            e,
         };
 
         Player::generate_expect(expect)
     }
 
-    fn generate_pit_expect(rng: &mut ThreadRng) -> HashMap<Expect, f64> {
+    fn generate_pit_expect(rng: &mut ThreadRng) -> ExpectMap {
         let target_obp = gen_normal(rng, 0.321, 0.039);
         let h = gen_gamma(rng, 3.58229424925063, 43.691697161455);
         let h2b = gen_normal(rng, 0.342, 0.137) * h;
@@ -426,10 +452,10 @@ impl Player {
         let h1b = h - h2b - h3b;
         let hr = gen_gamma(rng, 3.30666140034948, 7.53788040691485);
         let bb = gen_gamma(rng, 6.64203372642545, 9.13486625765644);
-        let hbp = gen_normal(rng, 7.261499514, 5.272573316);
+        let hbp = gen_gamma(rng, 19.9583780886045, 0.390444942208961);
         let so = gen_normal(rng, 0.1928022279, 0.02819196439);
 
-        let expect = ExpectPct {
+        let expect = ExpectRaw {
             target_obp,
             h1b,
             h2b,
@@ -438,9 +464,146 @@ impl Player {
             bb,
             hbp,
             so,
+            e: 0.0,
         };
 
         Player::generate_expect(expect)
+    }
+
+
+    fn normalize(hashmap: &mut HashMap<Position, u32>) {
+        let sum = hashmap.iter().map(|(_, v)| v).sum::<u32>();
+        for (_, val) in hashmap.iter_mut() {
+            *val = (*val * 1000) / sum;
+        }
+    }
+
+    fn generate_bat_spray(rng: &mut ThreadRng, pos: &Position) -> SprayChart {
+        let mut spray = SprayChart::new();
+
+        if *pos != Position::Pitcher {
+            let mut single = HashMap::new();
+            single.insert(Position::Pitcher, rng.gen_range(0..3));
+            single.insert(Position::Catcher, rng.gen_range(0..3));
+            single.insert(Position::FirstBase, rng.gen_range(0..3));
+            single.insert(Position::SecondBase, rng.gen_range(10..20));
+            single.insert(Position::ThirdBase, rng.gen_range(10..20));
+            single.insert(Position::ShortStop, rng.gen_range(10..20));
+            single.insert(Position::LeftField, rng.gen_range(100..200));
+            single.insert(Position::CenterField, rng.gen_range(100..200));
+            single.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut single);
+
+            let mut double = HashMap::new();
+            double.insert(Position::LeftField, rng.gen_range(100..200));
+            double.insert(Position::CenterField, rng.gen_range(100..200));
+            double.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut double);
+
+            let mut triple = HashMap::new();
+            triple.insert(Position::LeftField, rng.gen_range(100..200));
+            triple.insert(Position::CenterField, rng.gen_range(100..200));
+            triple.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut triple);
+
+            let mut homerun = HashMap::new();
+            homerun.insert(Position::LeftField, rng.gen_range(100..200));
+            homerun.insert(Position::CenterField, rng.gen_range(100..200));
+            homerun.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut homerun);
+
+            let mut out = HashMap::new();
+            out.insert(Position::Pitcher, 5);
+            out.insert(Position::Catcher, 5);
+            out.insert(Position::FirstBase, 10);
+            out.insert(Position::SecondBase, 10);
+            out.insert(Position::ThirdBase, 10);
+            out.insert(Position::ShortStop, 10);
+            out.insert(Position::LeftField, 10);
+            out.insert(Position::CenterField, 10);
+            out.insert(Position::RightField, 10);
+            Self::normalize(&mut out);
+
+            spray.insert(Expect::Single, single);
+            spray.insert(Expect::Double, double);
+            spray.insert(Expect::Triple, triple);
+            spray.insert(Expect::HomeRun, homerun);
+            spray.insert(Expect::Out, out);
+        } else {}
+
+        spray
+    }
+
+    fn generate_pit_spray(rng: &mut ThreadRng, pos: &Position) -> SprayChart {
+        let mut spray = SprayChart::new();
+
+        if *pos == Position::Pitcher {
+            let mut single = HashMap::new();
+            single.insert(Position::Pitcher, rng.gen_range(0..3));
+            single.insert(Position::Catcher, rng.gen_range(0..3));
+            single.insert(Position::FirstBase, rng.gen_range(0..3));
+            single.insert(Position::SecondBase, rng.gen_range(10..20));
+            single.insert(Position::ThirdBase, rng.gen_range(10..20));
+            single.insert(Position::ShortStop, rng.gen_range(10..20));
+            single.insert(Position::LeftField, rng.gen_range(100..200));
+            single.insert(Position::CenterField, rng.gen_range(100..200));
+            single.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut single);
+
+            let mut double = HashMap::new();
+            double.insert(Position::LeftField, rng.gen_range(100..200));
+            double.insert(Position::CenterField, rng.gen_range(100..200));
+            double.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut double);
+
+            let mut triple = HashMap::new();
+            triple.insert(Position::LeftField, rng.gen_range(100..200));
+            triple.insert(Position::CenterField, rng.gen_range(100..200));
+            triple.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut triple);
+
+            let mut homerun = HashMap::new();
+            homerun.insert(Position::LeftField, rng.gen_range(100..200));
+            homerun.insert(Position::CenterField, rng.gen_range(100..200));
+            homerun.insert(Position::RightField, rng.gen_range(100..200));
+            Self::normalize(&mut homerun);
+
+            let mut out = HashMap::new();
+            out.insert(Position::Pitcher, 5);
+            out.insert(Position::Catcher, 5);
+            out.insert(Position::FirstBase, 10);
+            out.insert(Position::SecondBase, 10);
+            out.insert(Position::ThirdBase, 10);
+            out.insert(Position::ShortStop, 10);
+            out.insert(Position::LeftField, 10);
+            out.insert(Position::CenterField, 10);
+            out.insert(Position::RightField, 10);
+            Self::normalize(&mut out);
+
+            spray.insert(Expect::Single, single);
+            spray.insert(Expect::Double, double);
+            spray.insert(Expect::Triple, triple);
+            spray.insert(Expect::HomeRun, homerun);
+            spray.insert(Expect::Out, out);
+        }
+
+        spray
+    }
+
+    pub(crate) fn determine_spray(bat: &SprayChart, pit: &SprayChart, expect: &Expect, rng: &mut ThreadRng) -> Position {
+        let merged = bat.iter().chain(pit).collect::<HashMap<_, _>>();
+        if let Some(expect_spray) = merged.get(expect) {
+            *expect_spray.iter()
+                .collect::<Vec<(_, _)>>()
+                .choose_weighted(rng, |o| o.1)
+                .unwrap().0
+        } else {
+            Position::CenterField
+        }
+    }
+
+    pub(crate) fn check_for_e(&self, rng: &mut ThreadRng) -> bool {
+        rng.gen_bool(*self.bat_expect.0.get(&Expect::Error).unwrap())
     }
 
     pub(crate) fn new(name_first: String, name_last: String, pos: &Position, year: u32, rng: &mut ThreadRng) -> Self {
@@ -464,6 +627,9 @@ impl Player {
         let bat_expect = (Player::generate_bat_expect(rng), Player::generate_bat_expect(rng));
         let pit_expect = (Player::generate_pit_expect(rng), Player::generate_pit_expect(rng));
 
+        let bat_spray = Player::generate_bat_spray(rng, pos);
+        let pit_spray = Player::generate_pit_spray(rng, pos);
+
         Player {
             active: true,
             name_first,
@@ -473,7 +639,9 @@ impl Player {
             bats: *bat_hand,
             throws: *pitch_hand,
             bat_expect,
+            bat_spray,
             pit_expect,
+            pit_spray,
             stat_stream: vec![],
             historical: vec![],
             fatigue: 0,
@@ -500,7 +668,7 @@ impl Player {
             ..HistoricalStats::default()
         };
         for stat in &self.stat_stream {
-            let val = historical.batting_stats.entry(*stat).or_insert(0);
+            let val = historical.stats.entry(*stat).or_insert(0);
             *val += 1;
         }
         self.historical.push(historical);
@@ -508,10 +676,10 @@ impl Player {
         self.reset_stats()
     }
 
-    pub(crate) fn bat_expect_vs(&self, throws: Handedness) -> &HashMap<Expect, f64> {
+    pub(crate) fn bat_expect_vs(&self, throws: Handedness) -> &ExpectMap {
         if throws == Handedness::Left { &self.bat_expect.0 } else { &self.bat_expect.1 }
     }
-    pub(crate) fn pit_expect_vs(&self, bats: Handedness) -> &HashMap<Expect, f64> {
+    pub(crate) fn pit_expect_vs(&self, bats: Handedness) -> &ExpectMap {
         if bats == Handedness::Left { &self.pit_expect.0 } else { &self.pit_expect.1 }
     }
 
@@ -538,6 +706,8 @@ impl Player {
         let mut p_o = 0;
         let mut p_r = 0;
         let mut p_er = 0;
+        let mut f_po = 0;
+        let mut f_e = 0;
 
         for stat in &self.stat_stream {
             match stat {
@@ -563,6 +733,8 @@ impl Player {
                 Stat::Po => p_o += 1,
                 Stat::Pr => p_r += 1,
                 Stat::Per => p_er += 1,
+                Stat::Fpo => f_po += 1,
+                Stat::Fe => f_e += 1,
                 _ => {}
             }
         }
@@ -620,6 +792,8 @@ impl Player {
             p_slg,
             p_era,
             p_whip,
+            f_po,
+            f_e,
         }
     }
 

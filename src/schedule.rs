@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use lazy_static::lazy_static;
+use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
-use crate::player::{Expect, Handedness, Player, Position, Stat};
+use crate::player::{Expect, ExpectMap, Handedness, Player, Position, Stat};
 use crate::team::Team;
-use rand::Rng;
 
 #[derive(Copy, Clone, Default)]
 struct RunnerInfo {
@@ -43,7 +43,7 @@ impl Scoreboard {
         }
     }
 
-    fn advance_onbase(&mut self, batter: u64, pitcher: u64, earned: bool, amt: u8) {
+    fn advance_onbase(&mut self, batter: u64, pitcher: u64, earned: bool, amt: u8) -> u8 {
         self.onbase[0] = Some(RunnerInfo { runner: batter, pitcher, earned });
         for _ in 0..amt {
             if self.onbase[1].is_some() {
@@ -60,6 +60,11 @@ impl Scoreboard {
         for idx in 0..amt as usize {
             self.onbase[idx] = None;
         }
+        0
+    }
+
+    fn player_at_pos(&self, pos: Position) -> u64 {
+        if pos == Position::Pitcher { self.pitcher_of_record } else { self.bo.iter().find(|o| o.pos == pos).unwrap().player }
     }
 
     pub(crate) fn record_runs(&mut self) {
@@ -92,10 +97,11 @@ pub(crate) struct Game {
     pub(crate) away: Scoreboard,
     inning: Inning,
     outs: u8,
+    virtual_outs: u8,
 }
 
 lazy_static! {
-    static ref LEAGUE_AVG: HashMap<Expect, f64> = {
+    static ref LEAGUE_AVG: ExpectMap = {
         let mut expect = HashMap::new();
         expect.insert(Expect::Single, 0.1379988963);
         expect.insert(Expect::Double, 0.045119492);
@@ -120,6 +126,7 @@ impl Game {
                 half: InningHalf::Top,
             },
             outs: 0,
+            virtual_outs: 0,
         }
     }
 
@@ -165,8 +172,7 @@ impl Game {
         }
 
         for starter in scoreboard.bo.iter_mut() {
-
-            if let Some(replacement) = team_players.iter().find(|o| o.0 != starter.player && o.1.pos == starter.pos ) {
+            if let Some(replacement) = team_players.iter().find(|o| o.0 != starter.player && o.1.pos == starter.pos) {
                 let starter_player = players.get(&starter.player).unwrap();
                 let fat_pct = starter_player.fatigue as f64 / starter_player.fatigue_threshold(year);
                 if rng.gen_bool(fat_pct.min(1.0)) {
@@ -176,7 +182,7 @@ impl Game {
         }
 
         for starter in scoreboard.bo.iter() {
-            let player = Game::record_stat(players,starter.player,Stat::Gs);
+            let player = Game::record_stat(players, starter.player, Stat::Gs);
             player.fatigue += 1;
         }
     }
@@ -191,7 +197,7 @@ impl Game {
         self.inning.number = 1;
     }
 
-    fn get_expected_pa(batter: &HashMap<Expect,f64>, pitcher: &HashMap<Expect,f64>, rng: &mut ThreadRng) -> Expect {
+    fn get_expected_pa(batter: &HashMap<Expect, f64>, pitcher: &HashMap<Expect, f64>, rng: &mut ThreadRng) -> Expect {
         *batter.iter().map(|kv| {
             let bval = kv.1;
             let pval = pitcher.get(&kv.0).unwrap_or(&0.0);
@@ -213,6 +219,19 @@ impl Game {
         player
     }
 
+    fn home_away(&mut self) -> (&mut Scoreboard, &Scoreboard) {
+        if self.is_away_ab() { (&mut self.away, &self.home) } else { (&mut self.home, &self.away) }
+    }
+
+    fn check_for_error(players: &mut HashMap<u64, Player>, fielder_id: u64, result: Expect, rng: &mut ThreadRng) -> Expect {
+        let fielder = players.get(&fielder_id).unwrap();
+        if result == Expect::Out && fielder.check_for_e(rng) {
+            Expect::Error
+        } else {
+            result
+        }
+    }
+
     pub(crate) fn sim(&mut self, teams: &mut HashMap<u64, Team>, players: &mut HashMap<u64, Player>, year: u32, rng: &mut ThreadRng) {
         self.setup_game(players, teams, year, rng);
 
@@ -220,20 +239,24 @@ impl Game {
             if self.inning.half == InningHalf::Middle {
                 self.home.onbase.fill(None);
                 self.outs = 0;
+                self.virtual_outs = 0;
                 self.inning.half = InningHalf::Bottom;
                 continue;
             }
             if self.inning.half == InningHalf::End {
                 self.away.onbase.fill(None);
                 self.outs = 0;
+                self.virtual_outs = 0;
                 self.inning.number += 1;
                 self.inning.half = InningHalf::Top;
                 continue;
             }
+            let earned = self.virtual_outs < 3;
 
-            let pitcher_id = if self.is_away_ab() { self.home.pitcher_of_record } else { self.away.pitcher_of_record };
+            let (bat_scoreboard, pit_scoreboard) = self.home_away();
+
+            let pitcher_id = pit_scoreboard.pitcher_of_record;
             let pitcher = players.get(&pitcher_id).unwrap();
-            let bat_scoreboard = if self.is_away_ab() { &mut self.away } else { &mut self.home };
 
             let batter_id = bat_scoreboard.bo[bat_scoreboard.ab].player;
             let batter = players.get(&batter_id).unwrap();
@@ -241,31 +264,46 @@ impl Game {
             let batter_expect = batter.bat_expect_vs(pitcher.throws);
             let pitcher_expect = pitcher.pit_expect_vs(batter.bats);
 
-            let result = Game::get_expected_pa(batter_expect, pitcher_expect, rng);
-            match result {
-                Expect::Single => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 1),
-                Expect::Double => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 2),
-                Expect::Triple => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 3),
-                Expect::HomeRun => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 4),
-                Expect::Walk => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 1),
-                Expect::HitByPitch => bat_scoreboard.advance_onbase(batter_id, pitcher_id, true, 1),
-                Expect::Strikeout => self.outs += 1,
-                Expect::Out => self.outs += 1,
+            let result = Self::get_expected_pa(batter_expect, pitcher_expect, rng);
+            let target = Player::determine_spray(&batter.bat_spray, &pitcher.pit_spray, &result, rng);
+
+            let fielder_id = pit_scoreboard.player_at_pos(target);
+            let result = Self::check_for_error(players, fielder_id, result, rng);
+
+
+            let outs = match result {
+                Expect::Single => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1),
+                Expect::Double => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 2),
+                Expect::Triple => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 3),
+                Expect::HomeRun => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 4),
+                Expect::Walk => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1),
+                Expect::HitByPitch => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1),
+                Expect::Error => {
+                    Self::record_stat(players, fielder_id, Stat::Fe);
+                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, false, 1)
+                }
+                Expect::Strikeout => 1,
+                Expect::Out => {
+                    Self::record_stat(players, fielder_id, Stat::Fpo);
+                    1
+                }
             };
             let batting_stat = result.to_batting_stat();
             let pitching_stat = result.to_pitching_stat();
 
-            let batter = Game::record_stat(players, batter_id, batting_stat);
+            let batter = Self::record_stat(players, batter_id, batting_stat);
 
-            for _ in &bat_scoreboard.runs_in {
-                batter.record_stat(Stat::Brbi);
+            if result != Expect::Error {
+                for _ in &bat_scoreboard.runs_in {
+                    batter.record_stat(Stat::Brbi);
+                }
             }
 
-            Game::record_stat(players, pitcher_id, pitching_stat);
+            Self::record_stat(players, pitcher_id, pitching_stat);
 
             for runner in &bat_scoreboard.runs_in {
-                Game::record_stat(players, runner.runner, Stat::Br);
-                let pitcher = Game::record_stat(players, runner.pitcher, Stat::Pr);
+                Self::record_stat(players, runner.runner, Stat::Br);
+                let pitcher = Self::record_stat(players, runner.pitcher, Stat::Pr);
                 if runner.earned {
                     pitcher.record_stat(Stat::Per);
                 }
@@ -275,6 +313,11 @@ impl Game {
 
             bat_scoreboard.ab = (bat_scoreboard.ab + 1) % 9;
 
+            self.outs += outs;
+            self.virtual_outs += outs;
+            if result == Expect::Error {
+                self.virtual_outs += 1;
+            }
             if self.outs >= 3 {
                 if self.inning.half == InningHalf::Top {
                     self.inning.half = InningHalf::Middle;
@@ -321,7 +364,7 @@ impl Schedule {
                         let game = raw_matchups.remove(idx);
                         let other_team = if game.home.id == team { game.away.id } else { game.home.id };
                         matchups.push(game);
-                        teams_to_pick.retain(|&o| o != other_team );
+                        teams_to_pick.retain(|&o| o != other_team);
                     }
                 }
             }
