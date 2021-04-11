@@ -15,7 +15,7 @@ pub(crate) type PlayerRefMap<'a> = HashMap<PlayerId, &'a Player>;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, IntoEnumIterator)]
 pub(crate) enum Position {
-    Pitcher,
+    StartingPitcher,
     Catcher,
     FirstBase,
     SecondBase,
@@ -25,18 +25,22 @@ pub(crate) enum Position {
     CenterField,
     RightField,
     DesignatedHitter,
+    LongRelief,
+    ShortRelief,
+    Setup,
+    Closer,
 }
 
 impl Default for Position {
     fn default() -> Self {
-        Self::Pitcher
+        Self::StartingPitcher
     }
 }
 
 impl Position {
     pub(crate) fn to_str(&self) -> &str {
         match self {
-            Position::Pitcher => "P",
+            Position::StartingPitcher => "SP",
             Position::Catcher => "C",
             Position::FirstBase => "1B",
             Position::SecondBase => "2B",
@@ -46,7 +50,38 @@ impl Position {
             Position::CenterField => "CF",
             Position::RightField => "RF",
             Position::DesignatedHitter => "DH",
+            Position::LongRelief => "LR",
+            Position::ShortRelief => "SR",
+            Position::Setup => "SU",
+            Position::Closer => "CL",
         }
+    }
+
+    pub(crate) fn is_pitcher(&self) -> bool {
+        matches!(self,
+            Position::StartingPitcher |
+            Position::LongRelief |
+            Position::ShortRelief |
+            Position::Setup |
+            Position::Closer
+        )
+    }
+
+    pub(crate) fn is_infield(&self) -> bool {
+        matches!(self,
+            Position::FirstBase |
+            Position::SecondBase |
+            Position::ThirdBase |
+            Position::ShortStop
+        )
+    }
+
+    pub(crate) fn is_oufield(&self) -> bool {
+        matches!(self,
+            Position::LeftField |
+            Position::CenterField |
+            Position::RightField
+        )
     }
 }
 
@@ -114,30 +149,7 @@ pub(crate) enum Stat {
     Fe,
 }
 
-fn div1000_or_0(n: u32, d: u32) -> u32 {
-    if d > 0 { (n * 1000) / d } else { d }
-}
-
-fn calc_avg1000(ab: u32, h: u32) -> u32 {
-    div1000_or_0(h, ab)
-}
-
-fn calc_obp1000(pa: u32, h: u32, bb: u32, hbp: u32) -> u32 {
-    div1000_or_0(h + bb + hbp, pa)
-}
-
-fn calc_slg1000(ab: u32, h1b: u32, h2b: u32, h3b: u32, hr: u32) -> u32 {
-    div1000_or_0(h1b + (2 * h2b) + (3 * h3b) + (4 * hr), ab)
-}
-
-fn calc_era1000(er: u32, o: u32) -> u32 {
-    div1000_or_0(27 * er, o)
-}
-
-fn calc_whip1000(h: u32, bb: u32, o: u32) -> u32 {
-    div1000_or_0(3 * (h + bb), o)
-}
-
+#[derive(Default)]
 pub(crate) struct Stats {
     pub(crate) g: u32,
     pub(crate) gs: u32,
@@ -222,6 +234,51 @@ impl Stats {
             Stat::Fe => self.f_e,
         }
     }
+
+    fn div1000_or_0(n: u32, d: u32) -> u32 {
+        if d > 0 { (n * 1000) / d } else { d }
+    }
+
+    fn calc_avg1000(ab: u32, h: u32) -> u32 {
+        Self::div1000_or_0(h, ab)
+    }
+
+    fn calc_obp1000(pa: u32, h: u32, bb: u32, hbp: u32) -> u32 {
+        Self::div1000_or_0(h + bb + hbp, pa)
+    }
+
+    fn calc_slg1000(ab: u32, h1b: u32, h2b: u32, h3b: u32, hr: u32) -> u32 {
+        Self::div1000_or_0(h1b + (2 * h2b) + (3 * h3b) + (4 * hr), ab)
+    }
+
+    fn calc_era1000(er: u32, o: u32) -> u32 {
+        Self::div1000_or_0(27 * er, o)
+    }
+
+    fn calc_whip1000(h: u32, bb: u32, o: u32) -> u32 {
+        Self::div1000_or_0(3 * (h + bb), o)
+    }
+
+    fn calculate(&mut self) {
+        self.b_h = self.b_1b + self.b_2b + self.b_3b + self.b_hr;
+        self.b_ab = self.b_h + self.b_o;
+        self.b_pa = self.b_ab + self.b_bb + self.b_hbp;
+
+        self.b_avg = Self::calc_avg1000(self.b_ab, self.b_h);
+        self.b_obp = Self::calc_obp1000(self.b_pa, self.b_h, self.b_bb, self.b_hbp);
+        self.b_slg = Self::calc_slg1000(self.b_ab, self.b_1b, self.b_2b, self.b_3b, self.b_hr);
+
+
+        self.p_h = self.p_1b + self.p_2b + self.p_3b + self.p_hr;
+        let p_ab = self.p_h + self.p_o;
+        self.p_bf = p_ab + self.p_bb + self.p_hbp;
+
+        self.p_avg = Self::calc_avg1000(p_ab, self.p_h);
+        self.p_obp = Self::calc_obp1000(self.p_bf, self.p_h, self.p_bb, self.p_hbp);
+        self.p_slg = Self::calc_slg1000(p_ab, self.p_1b, self.p_2b, self.p_3b, self.p_hr);
+        self.p_era = Self::calc_era1000(self.p_er, self.p_o);
+        self.p_whip = Self::calc_whip1000(self.p_h, self.p_bb, self.p_o);
+    }
 }
 
 #[derive(Default)]
@@ -234,81 +291,37 @@ pub(crate) struct HistoricalStats {
 
 impl HistoricalStats {
     pub(crate) fn get_stats(&self) -> Stats {
-        let g = *self.stats.get(&Stat::G).unwrap_or(&0);
-        let gs = *self.stats.get(&Stat::Gs).unwrap_or(&0);
+        let mut stats = Stats {
+            g: *self.stats.get(&Stat::G).unwrap_or(&0),
+            gs: *self.stats.get(&Stat::Gs).unwrap_or(&0),
+            b_1b: *self.stats.get(&Stat::B1b).unwrap_or(&0),
+            b_2b: *self.stats.get(&Stat::B2b).unwrap_or(&0),
+            b_3b: *self.stats.get(&Stat::B3b).unwrap_or(&0),
+            b_hr: *self.stats.get(&Stat::Bhr).unwrap_or(&0),
+            b_bb: *self.stats.get(&Stat::Bbb).unwrap_or(&0),
+            b_hbp: *self.stats.get(&Stat::Bhbp).unwrap_or(&0),
+            b_so: *self.stats.get(&Stat::Bso).unwrap_or(&0),
+            b_o: *self.stats.get(&Stat::Bo).unwrap_or(&0),
+            b_r: *self.stats.get(&Stat::Br).unwrap_or(&0),
+            b_rbi: *self.stats.get(&Stat::Brbi).unwrap_or(&0),
+            p_1b: *self.stats.get(&Stat::P1b).unwrap_or(&0),
+            p_2b: *self.stats.get(&Stat::P2b).unwrap_or(&0),
+            p_3b: *self.stats.get(&Stat::P3b).unwrap_or(&0),
+            p_hr: *self.stats.get(&Stat::Phr).unwrap_or(&0),
+            p_bb: *self.stats.get(&Stat::Pbb).unwrap_or(&0),
+            p_hbp: *self.stats.get(&Stat::Phbp).unwrap_or(&0),
+            p_so: *self.stats.get(&Stat::Pso).unwrap_or(&0),
+            p_o: *self.stats.get(&Stat::Po).unwrap_or(&0),
+            p_r: *self.stats.get(&Stat::Pr).unwrap_or(&0),
+            p_er: *self.stats.get(&Stat::Per).unwrap_or(&0),
+            f_po: *self.stats.get(&Stat::Fpo).unwrap_or(&0),
+            f_e: *self.stats.get(&Stat::Fe).unwrap_or(&0),
+            ..Stats::default()
+        };
 
-        let b_1b = *self.stats.get(&Stat::B1b).unwrap_or(&0);
-        let b_2b = *self.stats.get(&Stat::B2b).unwrap_or(&0);
-        let b_3b = *self.stats.get(&Stat::B3b).unwrap_or(&0);
-        let b_hr = *self.stats.get(&Stat::Bhr).unwrap_or(&0);
-        let b_bb = *self.stats.get(&Stat::Bbb).unwrap_or(&0);
-        let b_hbp = *self.stats.get(&Stat::Bhbp).unwrap_or(&0);
-        let b_so = *self.stats.get(&Stat::Bso).unwrap_or(&0);
-        let b_o = *self.stats.get(&Stat::Bo).unwrap_or(&0);
-        let b_r = *self.stats.get(&Stat::Br).unwrap_or(&0);
-        let b_rbi = *self.stats.get(&Stat::Brbi).unwrap_or(&0);
+        stats.calculate();
 
-        let b_h = b_1b + b_2b + b_3b + b_hr;
-        let b_ab = b_h + b_o;
-        let b_pa = b_ab + b_bb + b_hbp;
-
-        let p_1b = *self.stats.get(&Stat::P1b).unwrap_or(&0);
-        let p_2b = *self.stats.get(&Stat::P2b).unwrap_or(&0);
-        let p_3b = *self.stats.get(&Stat::P3b).unwrap_or(&0);
-        let p_hr = *self.stats.get(&Stat::Phr).unwrap_or(&0);
-        let p_bb = *self.stats.get(&Stat::Pbb).unwrap_or(&0);
-        let p_hbp = *self.stats.get(&Stat::Phbp).unwrap_or(&0);
-        let p_so = *self.stats.get(&Stat::Pso).unwrap_or(&0);
-        let p_o = *self.stats.get(&Stat::Po).unwrap_or(&0);
-        let p_r = *self.stats.get(&Stat::Pr).unwrap_or(&0);
-        let p_er = *self.stats.get(&Stat::Per).unwrap_or(&0);
-
-        let p_h = p_1b + p_2b + p_3b + p_hr;
-        let p_ab = p_h + p_o;
-        let p_bf = p_ab + p_bb + p_hbp;
-
-        let f_po = *self.stats.get(&Stat::Fpo).unwrap_or(&0);
-        let f_e = *self.stats.get(&Stat::Fe).unwrap_or(&0);
-
-        Stats {
-            g,
-            gs,
-            b_1b,
-            b_2b,
-            b_3b,
-            b_hr,
-            b_bb,
-            b_hbp,
-            b_r,
-            b_rbi,
-            b_so,
-            b_o,
-            b_h,
-            b_ab,
-            b_pa,
-            b_avg: calc_avg1000(b_ab, b_h),
-            b_obp: calc_obp1000(b_pa, b_h, b_bb, b_hbp),
-            b_slg: calc_slg1000(b_ab, b_1b, b_2b, b_3b, b_hr),
-            p_1b,
-            p_2b,
-            p_3b,
-            p_hr,
-            p_bb,
-            p_hbp,
-            p_r,
-            p_er,
-            p_so,
-            p_o,
-            p_h,
-            p_bf,
-            p_avg: calc_avg1000(p_ab, p_h),
-            p_obp: calc_obp1000(p_bf, p_h, p_bb, p_hbp),
-            p_slg: calc_slg1000(p_ab, p_1b, p_2b, p_3b, p_hr),
-            p_era: calc_era1000(p_er, p_o),
-            p_whip: calc_whip1000(p_h, p_bb, p_o),
-            f_po,
-            f_e,
-        }
+        stats
     }
 }
 
@@ -432,7 +445,7 @@ impl Player {
         let bb = gen_gamma(rng, 8.34381266257955, 7.16855765752819);
         let hbp = gen_gamma(rng, 18.8629868507638, 0.404463971747468);
         let so = gen_normal(rng, 0.1914556061, 0.02597102753);
-        let e = (1.0 - gen_normal(rng, 0.9765828221, 0.9765828221).clamp(0.0, 1.0) ) / 3.0;
+        let e = (1.0 - gen_normal(rng, 0.9765828221, 0.9765828221).clamp(0.0, 1.0)) / 3.0;
 
         let expect = ExpectRaw {
             target_obp,
@@ -486,9 +499,9 @@ impl Player {
     fn generate_bat_spray(rng: &mut ThreadRng, pos: &Position) -> SprayChart {
         let mut spray = SprayChart::new();
 
-        if *pos != Position::Pitcher {
+        if !pos.is_pitcher() {
             let mut single = HashMap::new();
-            single.insert(Position::Pitcher, rng.gen_range(0..3));
+            single.insert(Position::StartingPitcher, rng.gen_range(0..3));
             single.insert(Position::Catcher, rng.gen_range(0..3));
             single.insert(Position::FirstBase, rng.gen_range(0..3));
             single.insert(Position::SecondBase, rng.gen_range(10..20));
@@ -518,7 +531,7 @@ impl Player {
             Self::normalize(&mut homerun);
 
             let mut out = HashMap::new();
-            out.insert(Position::Pitcher, 5);
+            out.insert(Position::StartingPitcher, 5);
             out.insert(Position::Catcher, 5);
             out.insert(Position::FirstBase, 10);
             out.insert(Position::SecondBase, 10);
@@ -542,9 +555,9 @@ impl Player {
     fn generate_pit_spray(rng: &mut ThreadRng, pos: &Position) -> SprayChart {
         let mut spray = SprayChart::new();
 
-        if *pos == Position::Pitcher {
+        if pos.is_pitcher() {
             let mut single = HashMap::new();
-            single.insert(Position::Pitcher, rng.gen_range(0..3));
+            single.insert(Position::StartingPitcher, rng.gen_range(0..3));
             single.insert(Position::Catcher, rng.gen_range(0..3));
             single.insert(Position::FirstBase, rng.gen_range(0..3));
             single.insert(Position::SecondBase, rng.gen_range(10..20));
@@ -574,7 +587,7 @@ impl Player {
             Self::normalize(&mut homerun);
 
             let mut out = HashMap::new();
-            out.insert(Position::Pitcher, 5);
+            out.insert(Position::StartingPitcher, 5);
             out.insert(Position::Catcher, 5);
             out.insert(Position::FirstBase, 10);
             out.insert(Position::SecondBase, 10);
@@ -689,117 +702,43 @@ impl Player {
     }
 
     pub(crate) fn get_stats(&self) -> Stats {
-        let mut g = 0;
-        let mut gs = 0;
-        let mut b_1b = 0;
-        let mut b_2b = 0;
-        let mut b_3b = 0;
-        let mut b_hr = 0;
-        let mut b_bb = 0;
-        let mut b_hbp = 0;
-        let mut b_so = 0;
-        let mut b_o = 0;
-        let mut b_r = 0;
-        let mut b_rbi = 0;
-        let mut p_1b = 0;
-        let mut p_2b = 0;
-        let mut p_3b = 0;
-        let mut p_hr = 0;
-        let mut p_bb = 0;
-        let mut p_hbp = 0;
-        let mut p_so = 0;
-        let mut p_o = 0;
-        let mut p_r = 0;
-        let mut p_er = 0;
-        let mut f_po = 0;
-        let mut f_e = 0;
+        let mut stats = Stats {
+            ..Stats::default()
+        };
 
         for stat in &self.stat_stream {
             match stat {
-                Stat::G => g += 1,
-                Stat::Gs => gs += 1,
-                Stat::B1b => b_1b += 1,
-                Stat::B2b => b_2b += 1,
-                Stat::B3b => b_3b += 1,
-                Stat::Bhr => b_hr += 1,
-                Stat::Bbb => b_bb += 1,
-                Stat::Bhbp => b_hbp += 1,
-                Stat::Bso => b_so += 1,
-                Stat::Bo => b_o += 1,
-                Stat::Br => b_r += 1,
-                Stat::Brbi => b_rbi += 1,
-                Stat::P1b => p_1b += 1,
-                Stat::P2b => p_2b += 1,
-                Stat::P3b => p_3b += 1,
-                Stat::Phr => p_hr += 1,
-                Stat::Pbb => p_bb += 1,
-                Stat::Phbp => p_hbp += 1,
-                Stat::Pso => p_so += 1,
-                Stat::Po => p_o += 1,
-                Stat::Pr => p_r += 1,
-                Stat::Per => p_er += 1,
-                Stat::Fpo => f_po += 1,
-                Stat::Fe => f_e += 1,
+                Stat::G => stats.g += 1,
+                Stat::Gs => stats.gs += 1,
+                Stat::B1b => stats.b_1b += 1,
+                Stat::B2b => stats.b_2b += 1,
+                Stat::B3b => stats.b_3b += 1,
+                Stat::Bhr => stats.b_hr += 1,
+                Stat::Bbb => stats.b_bb += 1,
+                Stat::Bhbp => stats.b_hbp += 1,
+                Stat::Bso => stats.b_so += 1,
+                Stat::Bo => stats.b_o += 1,
+                Stat::Br => stats.b_r += 1,
+                Stat::Brbi => stats.b_rbi += 1,
+                Stat::P1b => stats.p_1b += 1,
+                Stat::P2b => stats.p_2b += 1,
+                Stat::P3b => stats.p_3b += 1,
+                Stat::Phr => stats.p_hr += 1,
+                Stat::Pbb => stats.p_bb += 1,
+                Stat::Phbp => stats.p_hbp += 1,
+                Stat::Pso => stats.p_so += 1,
+                Stat::Po => stats.p_o += 1,
+                Stat::Pr => stats.p_r += 1,
+                Stat::Per => stats.p_er += 1,
+                Stat::Fpo => stats.f_po += 1,
+                Stat::Fe => stats.f_e += 1,
                 _ => {}
             }
         }
 
-        let b_h = b_1b + b_2b + b_3b + b_hr;
-        let b_ab = b_h + b_o;
-        let b_pa = b_ab + b_bb + b_hbp;
-        let b_avg = calc_avg1000(b_ab, b_h);
-        let b_obp = calc_obp1000(b_pa, b_h, b_bb, b_hbp);
-        let b_slg = calc_slg1000(b_ab, b_1b, b_2b, b_3b, b_hr);
+        stats.calculate();
 
-
-        let p_h = p_1b + p_2b + p_3b + p_hr;
-        let p_ab = p_h + p_o;
-        let p_bf = p_ab + p_bb + p_hbp;
-        let p_avg = calc_avg1000(p_ab, p_h);
-        let p_obp = calc_obp1000(p_bf, p_h, p_bb, p_hbp);
-        let p_slg = calc_slg1000(p_ab, p_1b, p_2b, p_3b, p_hr);
-        let p_era = calc_era1000(p_er, p_o);
-        let p_whip = calc_whip1000(p_h, p_bb, p_o);
-
-        Stats {
-            g,
-            gs,
-            b_1b,
-            b_2b,
-            b_3b,
-            b_hr,
-            b_bb,
-            b_hbp,
-            b_so,
-            b_o,
-            b_r,
-            b_rbi,
-            b_h,
-            b_ab,
-            b_pa,
-            b_avg,
-            b_obp,
-            b_slg,
-            p_1b,
-            p_2b,
-            p_3b,
-            p_hr,
-            p_bb,
-            p_hbp,
-            p_r,
-            p_er,
-            p_so,
-            p_o,
-            p_h,
-            p_bf,
-            p_avg,
-            p_obp,
-            p_slg,
-            p_era,
-            p_whip,
-            f_po,
-            f_e,
-        }
+        stats
     }
 
     pub(crate) fn age(&self, year: u32) -> u32 {
@@ -824,15 +763,15 @@ impl Player {
 
 pub(crate) fn generate_players(players: &mut PlayerMap, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
     let pos_gen = vec![
-        Position::Pitcher,
-        Position::Pitcher,
-        Position::Pitcher,
-        Position::Pitcher,
-        Position::Pitcher,
-        Position::Pitcher,
-        Position::Pitcher,
-        Position::Pitcher,
-        Position::Pitcher,
+        Position::StartingPitcher,
+        Position::StartingPitcher,
+        Position::StartingPitcher,
+        Position::LongRelief,
+        Position::LongRelief,
+        Position::ShortRelief,
+        Position::ShortRelief,
+        Position::Setup,
+        Position::Closer,
         Position::Catcher,
         Position::FirstBase,
         Position::SecondBase,
@@ -860,6 +799,6 @@ pub(crate) fn generate_players(players: &mut PlayerMap, count: usize, year: u32,
 pub(crate) fn collect_all_active(players: &PlayerMap) -> PlayerRefMap<'_> {
     players.iter()
         .filter(|(_, v)| v.active)
-        .map(|(k,v)| (*k,v))
+        .map(|(k, v)| (*k, v))
         .collect()
 }

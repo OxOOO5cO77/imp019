@@ -5,7 +5,7 @@ use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
-use crate::player::{Expect, ExpectMap, Handedness, Player, Position, Stat, PlayerId, PlayerMap};
+use crate::player::{Expect, ExpectMap, Handedness, Player, PlayerId, PlayerMap, Position, Stat};
 use crate::team::{TeamId, TeamMap};
 
 #[derive(Copy, Clone, Default)]
@@ -64,7 +64,7 @@ impl Scoreboard {
     }
 
     fn player_at_pos(&self, pos: Position) -> PlayerId {
-        if pos == Position::Pitcher { self.pitcher_of_record } else { self.bo.iter().find(|o| o.pos == pos).unwrap().player }
+        if pos.is_pitcher() { self.pitcher_of_record } else { self.bo.iter().find(|o| o.pos == pos).unwrap().player }
     }
 
     pub(crate) fn record_runs(&mut self) {
@@ -156,7 +156,7 @@ impl Game {
 
     fn setup_bo(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard, year: u32, rng: &mut ThreadRng) {
         let team = teams.get_mut(&scoreboard.id).unwrap();
-        let mut team_players = team.players.iter().map(|o| (*o, players.get(o).unwrap())).filter(|o| o.1.pos != Position::Pitcher).collect::<Vec<_>>();
+        let mut team_players = team.players.iter().map(|o| (*o, players.get(o).unwrap())).filter(|o| !o.1.pos.is_pitcher()).collect::<Vec<_>>();
         team_players.sort_by_cached_key(|o| o.1.get_stats().b_obp);
         team_players.reverse();
 

@@ -7,9 +7,9 @@ use rand::rngs::ThreadRng;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
-use crate::player::{generate_players, PlayerId, PlayerMap, Position, Stat};
-use crate::team::{Team, TeamId, TeamMap};
+use crate::player::{generate_players, PlayerId, PlayerMap, Stat};
 use crate::player;
+use crate::team::{Team, TeamId, TeamMap};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Mode {
@@ -323,7 +323,7 @@ impl epi::App for Imp019App {
 
                                     for player_id in &team.players {
                                         let player = self.players.get(player_id).unwrap();
-                                        if player.pos == Position::Pitcher {
+                                        if player.pos.is_pitcher() {
                                             continue;
                                         }
                                         let stats = player.get_stats();
@@ -354,6 +354,7 @@ impl epi::App for Imp019App {
                                 ui.heading("Pitching");
                                 egui::Grid::new("pitching").striped(true).show(ui, |ui| {
                                     ui.label("Name");
+                                    ui.label("Pos");
                                     ui.label("G");
                                     ui.label("GS");
                                     ui.label("IP");
@@ -377,7 +378,7 @@ impl epi::App for Imp019App {
 
                                     for player_id in &team.players {
                                         let player = self.players.get(player_id).unwrap();
-                                        if player.pos != Position::Pitcher {
+                                        if !player.pos.is_pitcher() {
                                             continue;
                                         }
                                         let stats = player.get_stats();
@@ -385,6 +386,7 @@ impl epi::App for Imp019App {
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
                                             mode = Mode::Player(Some(*id), *player_id);
                                         }
+                                        ui.label(player.pos.to_str());
                                         ui.label(format!("{}", stats.g));
                                         ui.label(format!("{}", stats.gs));
                                         ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
@@ -421,7 +423,7 @@ impl epi::App for Imp019App {
                     if ui.button("Close").clicked() {
                         if let Some(team_id) = team_id {
                             mode = Mode::Team(*team_id);
-                        } else if player.pos == Position::Pitcher {
+                        } else if player.pos.is_pitcher() {
                             mode = Mode::PitLeaders(Stat::Pera, false);
                         } else {
                             mode = Mode::BatLeaders(Stat::Bhr, true);
@@ -433,7 +435,7 @@ impl epi::App for Imp019App {
                     ui.label(format!("Bats: {}", player.bats.to_str()));
                     ui.label(format!("Throws: {}", player.throws.to_str()));
 
-                    if player.pos != Position::Pitcher {
+                    if !player.pos.is_pitcher() {
                         ui.heading("Batting History");
                         egui::Grid::new("bhistory").striped(true).show(ui, |ui| {
                             ui.label("Year");
@@ -604,7 +606,7 @@ impl epi::App for Imp019App {
                             let team = &self.teams.get(team_id).unwrap();
                             for player_id in team.players.iter() {
                                 let player = self.players.get(player_id).unwrap();
-                                if player.pos != Position::Pitcher {
+                                if !player.pos.is_pitcher() {
                                     all_players.push((&team.abbr, player, player.get_stats(), player_id));
                                 }
                             }
@@ -656,6 +658,7 @@ impl epi::App for Imp019App {
                         ui.label("#");
                         ui.label("Name");
                         ui.label("Team");
+                        ui.label("Pos");
                         if ui.button("G").clicked() {
                             mode = select_pit_stat(Stat::G, *result, *reverse, true);
                         }
@@ -718,7 +721,7 @@ impl epi::App for Imp019App {
                             let team = &self.teams.get(team_id).unwrap();
                             for player_id in team.players.iter() {
                                 let player = self.players.get(player_id).unwrap();
-                                if player.pos == Position::Pitcher {
+                                if player.pos.is_pitcher() {
                                     all_players.push((&team.abbr, player, player.get_stats(), player_id));
                                 }
                             }
@@ -737,6 +740,7 @@ impl epi::App for Imp019App {
                                 mode = Mode::Player(None, *ap.3);
                             }
                             ui.label(ap.0);
+                            ui.label(player.pos.to_str());
 
 
                             let stats = &ap.2;

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use enum_iterator::IntoEnumIterator;
 
-use crate::player::{Position, PlayerId, PlayerMap, PlayerRefMap};
+use crate::player::{Player, PlayerId, PlayerMap, PlayerRefMap, Position};
 
 pub(crate) type TeamId = u64;
 pub(crate) type TeamMap = HashMap<TeamId, Team>;
@@ -117,23 +117,51 @@ impl Team {
 
     fn players_per_position(pos: Position) -> usize {
         match pos {
-            Position::Pitcher => 5,
-            _ => 2,
+            Position::StartingPitcher => 5,
+            Position::LongRelief => 3,
+            Position::ShortRelief => 3,
+            Position::Catcher => 2,
+            _ => 1,
+        }
+    }
+
+    fn count_at(&self, players: &PlayerMap, pred: &dyn Fn(&&Player) -> bool) -> usize {
+        self.players.iter().filter_map(|o| players.get(o)).filter(pred).count()
+    }
+
+    fn pick(available: &mut PlayerRefMap<'_>, pred: &dyn Fn(&&Player) -> bool) -> Option<PlayerId> {
+        if let Some(avail) = available.iter().find(|(_, v)| pred(v)) {
+            let id = *avail.0;
+            available.remove(&id);
+            Some(id)
+        } else {
+            None
+        }
+    }
+
+    fn fill_in(&mut self, available: &mut PlayerRefMap<'_>, players: &PlayerMap, max: usize, pred: &dyn Fn(&&Player) -> bool) {
+        let cur = self.count_at(players, pred);
+        for _ in cur..max {
+            if let Some(id) = Self::pick(available, pred) {
+                self.players.push(id);
+            }
         }
     }
 
     pub(crate) fn populate(&mut self, available: &mut PlayerRefMap<'_>, players: &PlayerMap) {
         for pos in Position::into_enum_iter() {
-            let cur = self.players.iter().filter(|o| players.get(o).unwrap().pos == pos).count();
             let max = Self::players_per_position(pos);
-            for _ in cur..max {
-                let p = *available.iter().find(|(_, v)| v.pos == pos).unwrap().0;
-                available.remove(&p);
-                self.players.push(p);
-            }
+            let exact_position = |o: &&Player| o.pos == pos;
+            self.fill_in(available, players, max, &exact_position);
         }
 
-        let pitchers = self.players.iter().filter(|o| players.get(o).unwrap().pos == Position::Pitcher).collect::<Vec<_>>();
+        let is_infield = |o: &&Player| o.pos.is_infield();
+        self.fill_in(available, players, 6, &is_infield);
+
+        let is_outfield = |o: &&Player| o.pos.is_oufield();
+        self.fill_in(available, players, 4, &is_outfield);
+
+        let pitchers = self.players.iter().filter(|o| players.get(o).unwrap().pos == Position::StartingPitcher).collect::<Vec<_>>();
         for (idx, p) in pitchers[0..5].iter().enumerate() {
             self.rotation[idx] = **p;
         }
