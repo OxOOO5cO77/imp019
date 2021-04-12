@@ -356,7 +356,6 @@ impl epi::App for Imp019App {
                                     ui.label("Name");
                                     ui.label("Pos");
                                     ui.label("G");
-                                    ui.label("GS");
                                     ui.label("IP");
                                     ui.label("BF");
                                     ui.label("H");
@@ -388,7 +387,6 @@ impl epi::App for Imp019App {
                                         }
                                         ui.label(player.pos.to_str());
                                         ui.label(format!("{}", stats.g));
-                                        ui.label(format!("{}", stats.gs));
                                         ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                                         ui.label(format!("{}", stats.p_bf));
                                         ui.label(format!("{}", stats.p_h));
@@ -492,7 +490,6 @@ impl epi::App for Imp019App {
                             ui.label("League");
                             ui.label("Team");
                             ui.label("G");
-                            ui.label("GS");
                             ui.label("IP");
                             ui.label("BF");
                             ui.label("H");
@@ -519,7 +516,6 @@ impl epi::App for Imp019App {
                                 ui.label(format!("{}", history.league));
                                 ui.label(&team.abbr);
                                 ui.label(format!("{}", stats.g));
-                                ui.label(format!("{}", stats.gs));
                                 ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                                 ui.label(format!("{}", stats.p_bf));
                                 ui.label(format!("{}", stats.p_h));
@@ -662,9 +658,6 @@ impl epi::App for Imp019App {
                         if ui.button("G").clicked() {
                             mode = select_pit_stat(Stat::G, *result, *reverse, true);
                         }
-                        if ui.button("GS").clicked() {
-                            mode = select_pit_stat(Stat::Gs, *result, *reverse, true);
-                        }
                         if ui.button("IP").clicked() {
                             mode = select_pit_stat(Stat::Po, *result, *reverse, true);
                         }
@@ -746,7 +739,6 @@ impl epi::App for Imp019App {
                             let stats = &ap.2;
 
                             ui.label(format!("{}", stats.g));
-                            ui.label(format!("{}", stats.gs));
                             ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                             ui.label(format!("{}", stats.p_bf));
                             ui.label(format!("{}", stats.p_h));

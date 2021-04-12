@@ -13,6 +13,7 @@ mod player;
 mod league;
 mod data;
 mod schedule;
+mod util;
 
 // ----------------------------------------------------------------------------
 // When compiling for web:

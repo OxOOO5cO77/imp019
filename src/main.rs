@@ -6,6 +6,7 @@ mod player;
 mod league;
 mod data;
 mod schedule;
+mod util;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {

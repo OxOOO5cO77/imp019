@@ -4,10 +4,10 @@ use enum_iterator::IntoEnumIterator;
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
-use rand_distr::{Distribution, Gamma, Normal};
 
 use crate::data::Data;
 use crate::team::TeamId;
+use crate::util::{gen_gamma,gen_normal};
 
 pub(crate) type PlayerId = u64;
 pub(crate) type PlayerMap = HashMap<PlayerId, Player>;
@@ -340,17 +340,11 @@ pub(crate) struct Player {
     pub(crate) bat_spray: SprayChart,
     pub(crate) pit_expect: (ExpectMap, ExpectMap),
     pub(crate) pit_spray: SprayChart,
+    pub(crate) patience: f64,
+    pub(crate) control: f64,
     stat_stream: Vec<Stat>,
     pub(crate) historical: Vec<HistoricalStats>,
     pub(crate) fatigue: u16,
-}
-
-fn gen_normal(rng: &mut ThreadRng, mean: f64, stddev: f64) -> f64 {
-    Normal::new(mean, stddev).unwrap().sample(rng)
-}
-
-fn gen_gamma(rng: &mut ThreadRng, shape: f64, scale: f64) -> f64 {
-    Gamma::new(shape, scale).unwrap().sample(rng)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -648,6 +642,9 @@ impl Player {
         let bat_spray = Self::generate_bat_spray(rng, pos);
         let pit_spray = Self::generate_pit_spray(rng, pos);
 
+        let patience = gen_gamma(rng, 4.0, 1.0).round().max(1.0);
+        let control = gen_gamma(rng, 5.0, 0.8).round().max(1.0);
+
         Self {
             active: true,
             name_first,
@@ -660,6 +657,8 @@ impl Player {
             bat_spray,
             pit_expect,
             pit_spray,
+            patience,
+            control,
             stat_stream: vec![],
             historical: vec![],
             fatigue: 0,
