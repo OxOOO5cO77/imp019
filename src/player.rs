@@ -439,7 +439,7 @@ impl Player {
         let bb = gen_gamma(rng, 8.34381266257955, 7.16855765752819);
         let hbp = gen_gamma(rng, 18.8629868507638, 0.404463971747468);
         let so = gen_normal(rng, 0.1914556061, 0.02597102753);
-        let e = (1.0 - gen_normal(rng, 0.9765828221, 0.9765828221).clamp(0.0, 1.0)) / 3.0;
+        let e = 1.0 - gen_normal(rng, 0.9765828221, 0.03).clamp(0.0, 1.0);
 
         let expect = ExpectRaw {
             target_obp,
