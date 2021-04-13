@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use eframe::{egui, epi};
-use eframe::egui::Button;
+use eframe::egui::{Button, Ui};
 use ordinal::Ordinal;
 use rand::rngs::ThreadRng;
 
@@ -9,6 +9,7 @@ use crate::data::Data;
 use crate::league::{end_of_season, League};
 use crate::player::{generate_players, PlayerId, PlayerMap, Stat};
 use crate::player;
+use crate::schedule::Game;
 use crate::team::{Team, TeamId, TeamMap};
 
 #[derive(Copy, Clone, PartialEq)]
@@ -126,6 +127,47 @@ fn select_pit_stat(new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool)
     Mode::PitLeaders(new_stat, flip)
 }
 
+fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) {
+    let home_team = teams.get(&game.home.id).unwrap();
+    let away_team = teams.get(&game.away.id).unwrap();
+
+    let complete = game.away.r != game.home.r;
+
+    ui.group(|ui| {
+        ui.vertical(|ui| {
+            if complete {
+                ui.horizontal(|ui| {
+                    ui.monospace("   ");
+                    ui.monospace("  R");
+                    ui.monospace("  H");
+                    ui.monospace("  E");
+                });
+            }
+            ui.horizontal(|ui| {
+                if complete {
+                    ui.monospace(&away_team.abbr);
+                    ui.monospace(format!("{:3}", game.away.r));
+                    ui.monospace(format!("{:3}", game.away.h));
+                    ui.monospace(format!("{:3}", game.away.e));
+                } else {
+                    ui.monospace(format!("  {}", away_team.abbr));
+                }
+            });
+            ui.horizontal(|ui| {
+                if complete {
+                    ui.monospace(&home_team.abbr);
+                    ui.monospace(format!("{:3}", game.home.r));
+                    ui.monospace(format!("{:3}", game.home.h));
+                    ui.monospace(format!("{:3}", game.home.e));
+                } else {
+                    ui.monospace(format!("@ {}", home_team.abbr));
+                }
+            });
+        });
+    });
+}
+
+
 impl epi::App for Imp019App {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
@@ -198,28 +240,40 @@ impl epi::App for Imp019App {
                     let cur_idx = league.schedule.games.iter().position(|o| o.home.r == o.away.r).unwrap_or(total_games);
                     let teams = league.teams.len();
 
+                    let half_teams = teams / 2;
+
                     if cur_idx < total_games {
-                        ui.heading(format!("Today ({})", cur_idx / (teams / 2)));
-                        for idx in cur_idx..(cur_idx + (teams / 2)) {
-                            let game = &league.schedule.games[idx];
-                            let home_team = self.teams.get(&game.home.id).unwrap();
-                            let away_team = self.teams.get(&game.away.id).unwrap();
-                            ui.label(format!("{} @ {}", away_team.abbr, home_team.abbr));
-                        }
+                        ui.heading(format!("Today ({})", cur_idx / half_teams));
+                        ui.group(|ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                for idx in cur_idx..(cur_idx + half_teams) {
+                                    let game = &league.schedule.games[idx];
+                                    display_game(ui, game, &self.teams);
+                                    if ((idx - cur_idx + 1) % 5) == 0 {
+                                        ui.end_row();
+                                    }
+                                }
+                            });
+                        });
                     }
 
                     if cur_idx > 0 {
                         ui.heading("Yesterday");
                         let end = cur_idx as i32;
-                        let start = end - ((teams / 2) as i32);
-                        for past_idx in start..end {
-                            if past_idx >= 0 {
-                                let game = &league.schedule.games[past_idx as usize];
-                                let home_team = self.teams.get(&game.home.id).unwrap();
-                                let away_team = self.teams.get(&game.away.id).unwrap();
-                                ui.label(format!("{} {:2} @ {:2} {}", away_team.abbr, game.away.r, game.home.r, home_team.abbr));
-                            }
-                        }
+                        let start = end - (half_teams as i32);
+                        ui.group(|ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                for past_idx in start..end {
+                                    if past_idx >= 0 {
+                                        let game = &league.schedule.games[past_idx as usize];
+                                        display_game(ui, game, &self.teams);
+                                        if ((past_idx - start + 1) % 4) == 0 {
+                                            ui.end_row();
+                                        }
+                                    }
+                                }
+                            });
+                        });
                     }
                     Mode::Schedule
                 }
