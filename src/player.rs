@@ -432,9 +432,9 @@ impl Player {
     fn generate_bat_expect(rng: &mut ThreadRng) -> ExpectMap {
         let target_obp = gen_normal(rng, 0.320, 0.036);
 
-        let h1b = gen_gamma(rng, 4.89051721563733, 19.7826596218742);
-        let h2b = gen_normal(rng, 0.342, 0.137) * h1b;
-        let h3b = gen_normal(rng, 0.0985, 0.0666) * h2b;
+        let h1b = gen_gamma(rng, 4.4746090247171, 22.0123537722845);
+        let h2b = gen_gamma(rng, 3.28935903780274, 10.0760991667206);
+        let h3b = gen_gamma(rng, 0.596598224150856, 0.155987658023824) * h2b;
         let hr = gen_gamma(rng, 12.2812930750413, 2.09953872829662);
         let bb = gen_gamma(rng, 8.34381266257955, 7.16855765752819);
         let hbp = gen_gamma(rng, 18.8629868507638, 0.404463971747468);

@@ -243,11 +243,11 @@ impl Game {
 
     fn max_pitches_for_pos(pos: Position) -> u32 {
         match pos {
-            Position::StartingPitcher => 100,
-            Position::LongRelief => 70,
-            Position::ShortRelief => 40,
-            Position::Setup => 30,
-            Position::Closer => 30,
+            Position::StartingPitcher => 110,
+            Position::LongRelief => 50,
+            Position::ShortRelief => 25,
+            Position::Setup => 25,
+            Position::Closer => 25,
             _ => 0,
         }
     }
