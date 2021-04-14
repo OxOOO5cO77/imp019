@@ -22,18 +22,29 @@ struct DefenseInfo {
     pos: Position,
 }
 
+#[derive(Clone, Default)]
+struct PitcherRecord {
+    pitcher: PlayerId,
+    outs: u8,
+    run_diff_in: i8,
+    run_diff_out: i8,
+}
+
 #[derive(Default)]
 pub(crate) struct Scoreboard {
     pub(crate) id: TeamId,
-    onbase: [Option<RunnerInfo>; 4],
-    runs_in: Vec<RunnerInfo>,
     pub(crate) r: u8,
     pub(crate) h: u8,
     pub(crate) e: u8,
+    onbase: [Option<RunnerInfo>; 4],
+    runs_in: Vec<RunnerInfo>,
     bo: [DefenseInfo; 9],
     ab: usize,
-    pitcher_of_record: PlayerId,
+    pitcher: PlayerId,
     pitches: u32,
+    pitcher_outs: u8,
+    pitcher_run_diff_in: i8,
+    pitcher_record: Vec<PitcherRecord>,
 }
 
 impl Scoreboard {
@@ -65,12 +76,21 @@ impl Scoreboard {
     }
 
     fn player_at_pos(&self, pos: Position) -> PlayerId {
-        if pos.is_pitcher() { self.pitcher_of_record } else { self.bo.iter().find(|o| o.pos == pos).unwrap().player }
+        if pos.is_pitcher() { self.pitcher } else { self.bo.iter().find(|o| o.pos == pos).unwrap().player }
     }
 
-    pub(crate) fn record_runs(&mut self) {
+    fn record_runs(&mut self) {
         self.r += self.runs_in.len() as u8;
         self.runs_in.clear();
+    }
+
+    fn record_pitcher(&mut self, other_r: i8) {
+        self.pitcher_record.push(PitcherRecord {
+            pitcher: self.pitcher,
+            outs: self.pitcher_outs,
+            run_diff_in: self.pitcher_run_diff_in,
+            run_diff_out: self.r as i8 - other_r,
+        });
     }
 }
 
@@ -149,7 +169,7 @@ impl Game {
 
     fn setup_pitcher(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard) -> Handedness {
         let team = teams.get_mut(&scoreboard.id).unwrap();
-        scoreboard.pitcher_of_record = team.rotation[0];
+        scoreboard.pitcher = team.rotation[0];
         let pitcher = Self::record_stat(players, team.rotation[0], Stat::Gs);
         team.rotation.rotate_left(1);
         pitcher.throws
@@ -256,19 +276,19 @@ impl Game {
         let inning = self.inning.number;
 
         let bat_scoreboard = self.batting();
-        let bat_r = bat_scoreboard.r as i32;
+        let bat_r = bat_scoreboard.r as i8;
         //let batter_id = bat_scoreboard.bo[bat_scoreboard.ab].player;
         //let batter_hand = players.get(&batter_id).unwrap().bats;
 
         let pit_scoreboard = self.pitching();
-        let pit_r = pit_scoreboard.r as i32;
+        let pit_r = pit_scoreboard.r as i8;
         let pit_team = teams.get(&pit_scoreboard.id).unwrap();
-        let cur_pitching = players.get(&pit_scoreboard.pitcher_of_record).unwrap().pos;
+        let cur_pitching = players.get(&pit_scoreboard.pitcher).unwrap().pos;
         let pitch_max = Self::max_pitches_for_pos(cur_pitching);
 
-        let diff = pit_r - bat_r;
+        let run_diff = pit_r - bat_r;
 
-        let sub = if diff > 0 && diff <= 3 {
+        let sub = if run_diff > 0 && run_diff <= 3 {
             if inning == 8 && cur_pitching != Position::Setup {
                 pit_team.players.iter().filter(|o| players.get(o).unwrap().pos == Position::Setup).choose(rng)
             } else if inning >= 9 && cur_pitching != Position::Closer {
@@ -291,10 +311,76 @@ impl Game {
         };
 
         if let Some(&new_pitcher) = sub {
-            pit_scoreboard.pitcher_of_record = new_pitcher;
+            pit_scoreboard.record_pitcher(bat_r);
+
+            pit_scoreboard.pitcher = new_pitcher;
             pit_scoreboard.pitches = 0;
+            pit_scoreboard.pitcher_outs = 0;
+            pit_scoreboard.pitcher_run_diff_in = run_diff;
             let pitcher = players.get_mut(&new_pitcher).unwrap();
             pitcher.record_stat(Stat::G);
+        }
+    }
+
+    fn record_wls(sb: &Scoreboard, players: &mut PlayerMap, oppo_r: i8) {
+        let last_pitcher = sb.pitcher_record.len() - 1;
+        let mut idx = last_pitcher;
+        let mut winner = None;
+        loop {
+            if sb.pitcher_record[idx].run_diff_out > 0 {
+                winner = Some(sb.pitcher_record[idx].pitcher);
+                if idx > 0 {
+                    idx -= 1;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        let mut idx = last_pitcher;
+        let mut loser = None;
+        loop {
+            if sb.pitcher_record[idx].run_diff_out < 0 {
+                loser = Some(sb.pitcher_record[idx].pitcher);
+                if idx > 0 {
+                    idx -= 1;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        if let Some(w) = winner {
+            let winning_pitcher = Self::record_stat(players, w, Stat::Pw);
+            if last_pitcher == 0 {
+                winning_pitcher.record_stat(Stat::Pcg);
+                if oppo_r == 0 {
+                    winning_pitcher.record_stat(Stat::Psho);
+                }
+            }
+
+            let last_pr = &sb.pitcher_record[last_pitcher];
+            if ( last_pr.run_diff_in <= 3 || last_pr.outs >= 9 ) && last_pr.pitcher != w {
+                Self::record_stat(players, last_pr.pitcher, Stat::Psv);
+            }
+
+            if last_pitcher > 0 {
+                let mut hold_idx = last_pitcher - 1;
+                while hold_idx > 0 && sb.pitcher_record[hold_idx].pitcher != w && sb.pitcher_record[hold_idx].run_diff_in <= 3 {
+                    Self::record_stat(players, sb.pitcher_record[hold_idx].pitcher, Stat::Phld);
+                    hold_idx -= 1;
+                }
+            }
+
+        }
+        if let Some(l) = loser {
+            let losing_pitcher = Self::record_stat(players, l, Stat::Pl);
+            if last_pitcher == 0 {
+                losing_pitcher.record_stat(Stat::Pcg);
+            }
+
         }
     }
 
@@ -323,7 +409,7 @@ impl Game {
 
             let (bat_scoreboard, pit_scoreboard) = self.batting_pitching();
 
-            let pitcher_id = pit_scoreboard.pitcher_of_record;
+            let pitcher_id = pit_scoreboard.pitcher;
             let pitcher = players.get(&pitcher_id).unwrap();
 
             let batter_id = bat_scoreboard.bo[bat_scoreboard.ab].player;
@@ -401,6 +487,7 @@ impl Game {
 
             let mut pit_scoreboard = self.pitching();
             pit_scoreboard.pitches += pitches;
+            pit_scoreboard.pitcher_outs += outs;
 
             self.outs += outs;
             self.virtual_outs += outs;
@@ -415,6 +502,19 @@ impl Game {
                 }
             }
         }
+
+        let bat_r = self.batting().r as i8;
+
+        let pitching = self.pitching();
+        pitching.record_pitcher(bat_r);
+        Self::record_wls(pitching, players, bat_r);
+
+        let pit_r = pitching.r as i8;
+
+        let batting = self.batting();
+        batting.record_pitcher(pit_r);
+        Self::record_wls(batting, players, pit_r);
+
 
         teams.get_mut(&self.home.id).unwrap().results(self.home.r, self.away.r);
         teams.get_mut(&self.away.id).unwrap().results(self.away.r, self.home.r);

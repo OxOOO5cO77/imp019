@@ -223,7 +223,7 @@ impl epi::App for Imp019App {
                         self.disp_league = cnt;
                     }
                     if ui.button("Pit").clicked() {
-                        self.disp_mode = Mode::PitLeaders(Stat::Pera, false);
+                        self.disp_mode = Mode::PitLeaders(Stat::Pw, true);
                         self.disp_league = cnt;
                     }
                 });
@@ -410,6 +410,12 @@ impl epi::App for Imp019App {
                                     ui.label("Name");
                                     ui.label("Pos");
                                     ui.label("G");
+                                    ui.label("W");
+                                    ui.label("L");
+                                    ui.label("SV");
+                                    ui.label("HLD");
+                                    ui.label("CG");
+                                    ui.label("SHO");
                                     ui.label("IP");
                                     ui.label("BF");
                                     ui.label("H");
@@ -441,6 +447,12 @@ impl epi::App for Imp019App {
                                         }
                                         ui.label(player.pos.to_str());
                                         ui.label(format!("{}", stats.g));
+                                        ui.label(format!("{}", stats.p_w));
+                                        ui.label(format!("{}", stats.p_l));
+                                        ui.label(format!("{}", stats.p_sv));
+                                        ui.label(format!("{}", stats.p_hld));
+                                        ui.label(format!("{}", stats.p_cg));
+                                        ui.label(format!("{}", stats.p_sho));
                                         ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                                         ui.label(format!("{}", stats.p_bf));
                                         ui.label(format!("{}", stats.p_h));
@@ -476,7 +488,7 @@ impl epi::App for Imp019App {
                         if let Some(team_id) = team_id {
                             mode = Mode::Team(*team_id);
                         } else if player.pos.is_pitcher() {
-                            mode = Mode::PitLeaders(Stat::Pera, false);
+                            mode = Mode::PitLeaders(Stat::Pw, true);
                         } else {
                             mode = Mode::BatLeaders(Stat::Bhr, true);
                         }
@@ -544,6 +556,12 @@ impl epi::App for Imp019App {
                             ui.label("League");
                             ui.label("Team");
                             ui.label("G");
+                            ui.label("W");
+                            ui.label("L");
+                            ui.label("SV");
+                            ui.label("HLD");
+                            ui.label("CG");
+                            ui.label("SHo");
                             ui.label("IP");
                             ui.label("BF");
                             ui.label("H");
@@ -570,6 +588,12 @@ impl epi::App for Imp019App {
                                 ui.label(format!("{}", history.league));
                                 ui.label(&team.abbr);
                                 ui.label(format!("{}", stats.g));
+                                ui.label(format!("{}", stats.p_w));
+                                ui.label(format!("{}", stats.p_l));
+                                ui.label(format!("{}", stats.p_sv));
+                                ui.label(format!("{}", stats.p_hld));
+                                ui.label(format!("{}", stats.p_cg));
+                                ui.label(format!("{}", stats.p_sho));
                                 ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                                 ui.label(format!("{}", stats.p_bf));
                                 ui.label(format!("{}", stats.p_h));
@@ -712,6 +736,24 @@ impl epi::App for Imp019App {
                         if ui.button("G").clicked() {
                             mode = select_pit_stat(Stat::G, *result, *reverse, true);
                         }
+                        if ui.button("W").clicked() {
+                            mode = select_pit_stat(Stat::Pw, *result, *reverse, true);
+                        }
+                        if ui.button("L").clicked() {
+                            mode = select_pit_stat(Stat::Pl, *result, *reverse, true);
+                        }
+                        if ui.button("SV").clicked() {
+                            mode = select_pit_stat(Stat::Psv, *result, *reverse, true);
+                        }
+                        if ui.button("HLD").clicked() {
+                            mode = select_pit_stat(Stat::Phld, *result, *reverse, true);
+                        }
+                        if ui.button("CG").clicked() {
+                            mode = select_pit_stat(Stat::Pcg, *result, *reverse, true);
+                        }
+                        if ui.button("SHO").clicked() {
+                            mode = select_pit_stat(Stat::Psho, *result, *reverse, true);
+                        }
                         if ui.button("IP").clicked() {
                             mode = select_pit_stat(Stat::Po, *result, *reverse, true);
                         }
@@ -793,6 +835,12 @@ impl epi::App for Imp019App {
                             let stats = &ap.2;
 
                             ui.label(format!("{}", stats.g));
+                            ui.label(format!("{}", stats.p_w));
+                            ui.label(format!("{}", stats.p_l));
+                            ui.label(format!("{}", stats.p_sv));
+                            ui.label(format!("{}", stats.p_hld));
+                            ui.label(format!("{}", stats.p_cg));
+                            ui.label(format!("{}", stats.p_sho));
                             ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
                             ui.label(format!("{}", stats.p_bf));
                             ui.label(format!("{}", stats.p_h));
