@@ -666,8 +666,8 @@ impl Player {
         let bat_spray = Self::generate_bat_spray(rng, pos);
         let pit_spray = Self::generate_pit_spray(rng, pos);
 
-        let patience = gen_gamma(rng, 4.0, 1.0).round().max(1.0);
-        let control = gen_gamma(rng, 5.0, 0.8).round().max(1.0);
+        let patience = gen_gamma(rng, 4.5, 1.0).round().max(1.0);
+        let control = gen_gamma(rng, 18.0, 0.2195).round().max(1.0);
 
         Self {
             active: true,

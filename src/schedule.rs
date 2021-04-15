@@ -424,7 +424,7 @@ impl Game {
             let fielder_id = pit_scoreboard.player_at_pos(target);
             let result = Self::check_for_error(players, fielder_id, result, rng);
 
-            let pitch_avg = (batter.control + pitcher.patience) / 2.0;
+            let pitch_avg = (batter.patience + pitcher.control) / 2.0;
             let mut pitches = gen_gamma(rng, pitch_avg, 1.0).round().max(1.0) as u32;
 
             let outs = match result {
