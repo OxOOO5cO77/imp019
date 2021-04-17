@@ -1721,7 +1721,6 @@ Kristofer,89
 Lars,89
 Quinlan,89
 Reggie,89
-Unknown,89
 Aaryan,88
 Arya,88
 Boone,88
