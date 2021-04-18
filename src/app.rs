@@ -14,14 +14,14 @@ use crate::team::{Team, TeamId, TeamMap};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Mode {
-    Schedule,
-    BoxScore(usize),
-    GameLog(usize),
-    Standings,
-    Team(TeamId),
-    Player(Option<TeamId>, PlayerId),
-    BatLeaders(Stat, bool),
-    PitLeaders(Stat, bool),
+    Schedule(usize),
+    BoxScore(usize, usize),
+    GameLog(usize, usize),
+    Standings(usize),
+    Team(usize, TeamId),
+    Player(usize, PlayerId, Option<TeamId>),
+    BatLeaders(usize, Stat, bool),
+    PitLeaders(usize, Stat, bool),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -33,7 +33,6 @@ pub struct Imp019App {
     teams: TeamMap,
     leagues: Vec<League>,
     year: u32,
-    disp_league: usize,
     disp_mode: Mode,
     sim_all: bool,
 }
@@ -47,8 +46,7 @@ impl Default for Imp019App {
             teams: HashMap::new(),
             leagues: Vec::new(),
             year: 2030,
-            disp_league: 0,
-            disp_mode: Mode::Schedule,
+            disp_mode: Mode::Schedule(0),
             sim_all: false,
         }
     }
@@ -96,8 +94,7 @@ impl Imp019App {
             teams,
             leagues,
             year,
-            disp_league: 0,
-            disp_mode: Mode::Schedule,
+            disp_mode: Mode::Schedule(0),
             sim_all: false,
         }
     }
@@ -119,14 +116,14 @@ fn as_league(value: Option<u32>) -> String {
     }
 }
 
-fn select_bat_stat(new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
+fn select_bat_stat(league: usize, new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
     let flip = if new_stat == cur_stat { !reverse } else { default };
-    Mode::BatLeaders(new_stat, flip)
+    Mode::BatLeaders(league, new_stat, flip)
 }
 
-fn select_pit_stat(new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
+fn select_pit_stat(league: usize, new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
     let flip = if new_stat == cur_stat { !reverse } else { default };
-    Mode::PitLeaders(new_stat, flip)
+    Mode::PitLeaders(league, new_stat, flip)
 }
 
 fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) -> bool {
@@ -310,20 +307,16 @@ impl epi::App for Imp019App {
                 ui.horizontal(|ui| {
                     ui.label(format!("League {}", cnt + 1));
                     if ui.button("Sche").clicked() {
-                        self.disp_mode = Mode::Schedule;
-                        self.disp_league = cnt;
+                        self.disp_mode = Mode::Schedule(cnt);
                     }
                     if ui.button("Stan").clicked() {
-                        self.disp_mode = Mode::Standings;
-                        self.disp_league = cnt;
+                        self.disp_mode = Mode::Standings(cnt);
                     }
                     if ui.button("Bat").clicked() {
-                        self.disp_mode = Mode::BatLeaders(Stat::Bhr, true);
-                        self.disp_league = cnt;
+                        self.disp_mode = Mode::BatLeaders(cnt, Stat::Bhr, true);
                     }
                     if ui.button("Pit").clicked() {
-                        self.disp_mode = Mode::PitLeaders(Stat::Pw, true);
-                        self.disp_league = cnt;
+                        self.disp_mode = Mode::PitLeaders(cnt, Stat::Pw, true);
                     }
                 });
             }
@@ -331,9 +324,9 @@ impl epi::App for Imp019App {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let league = &self.leagues[self.disp_league];
             self.disp_mode = match &self.disp_mode {
-                Mode::Schedule => {
+                Mode::Schedule(disp_league) => {
+                    let league = &self.leagues[*disp_league];
                     let total_games = league.schedule.games.len();
 
                     let cur_idx = league.schedule.games.iter().position(|o| o.home.r == o.away.r).unwrap_or(total_games);
@@ -353,7 +346,7 @@ impl epi::App for Imp019App {
                         });
                     }
 
-                    let mut mode = Mode::Schedule;
+                    let mut mode = Mode::Schedule(*disp_league);
                     if cur_idx > 0 {
                         ui.heading("Yesterday");
                         let end = cur_idx as i32;
@@ -364,7 +357,7 @@ impl epi::App for Imp019App {
                                     if past_idx >= 0 {
                                         let game = &league.schedule.games[past_idx as usize];
                                         if display_game(ui, game, &self.teams) {
-                                            mode = Mode::BoxScore(past_idx as usize)
+                                            mode = Mode::BoxScore(*disp_league, past_idx as usize)
                                         }
                                         if ((past_idx - start + 1) % 5) == 0 {
                                             ui.end_row();
@@ -376,8 +369,9 @@ impl epi::App for Imp019App {
                     }
                     mode
                 }
-                Mode::BoxScore(game_idx) => {
-                    let mut mode = Mode::BoxScore(*game_idx);
+                Mode::BoxScore(disp_league, game_idx) => {
+                    let league = &self.leagues[*disp_league];
+                    let mut mode = Mode::BoxScore(*disp_league, *game_idx);
                     let game = &league.schedule.games[*game_idx];
 
                     let awayteam = self.teams.get(&game.away.id).unwrap();
@@ -388,10 +382,10 @@ impl epi::App for Imp019App {
 
                     ui.horizontal(|ui| {
                         if ui.button("Back").clicked() {
-                            mode = Mode::Schedule;
+                            mode = Mode::Schedule(*disp_league);
                         }
                         if ui.button("Game Log").clicked() {
-                            mode = Mode::GameLog(*game_idx);
+                            mode = Mode::GameLog(*disp_league, *game_idx);
                         }
                     });
 
@@ -515,12 +509,13 @@ impl epi::App for Imp019App {
 
                     mode
                 }
-                Mode::GameLog(game_idx) => {
-                    let mut mode = Mode::GameLog(*game_idx);
+                Mode::GameLog(disp_league, game_idx) => {
+                    let league = &self.leagues[*disp_league];
+                    let mut mode = Mode::GameLog(*disp_league, *game_idx);
                     let game = &league.schedule.games[*game_idx];
 
                     if ui.button("Box Score").clicked() {
-                        mode = Mode::BoxScore(*game_idx);
+                        mode = Mode::BoxScore(*disp_league, *game_idx);
                     }
 
                     ScrollArea::auto_sized().show(ui, |ui| {
@@ -579,8 +574,9 @@ impl epi::App for Imp019App {
 
                     mode
                 }
-                Mode::Standings => {
-                    let mut mode = Mode::Standings;
+                Mode::Standings(disp_league) => {
+                    let league = &self.leagues[*disp_league];
+                    let mut mode = Mode::Standings(*disp_league);
                     egui::Grid::new("standings").show(ui, |ui| {
                         ui.label("Rank");
                         ui.label("Abbr");
@@ -602,7 +598,7 @@ impl epi::App for Imp019App {
                             ui.label(format!("{}", rank));
                             ui.label(team.abbr.as_str());
                             if ui.add(Button::new(team.name()).frame(false)).clicked() {
-                                mode = Mode::Team(**team_id);
+                                mode = Mode::Team(*disp_league, **team_id);
                             }
                             ui.label(format!("{}-{}", team.get_wins(), team.get_losses()));
                             ui.end_row();
@@ -611,10 +607,10 @@ impl epi::App for Imp019App {
                     });
                     mode
                 }
-                Mode::Team(id) => {
-                    let mut mode = Mode::Team(*id);
+                Mode::Team(disp_league, id) => {
+                    let mut mode = Mode::Team(*disp_league, *id);
                     if ui.button("Close").clicked() {
-                        mode = Mode::Standings;
+                        mode = Mode::Standings(*disp_league);
                     }
 
                     let team = self.teams.get(id).unwrap();
@@ -685,7 +681,7 @@ impl epi::App for Imp019App {
                                         let stats = player.get_stats();
 
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(Some(*id), *player_id);
+                                            mode = Mode::Player(*disp_league, *player_id, Some(*id));
                                         }
                                         ui.label(player.pos.to_str());
                                         ui.label(format!("{}", stats.g));
@@ -745,7 +741,7 @@ impl epi::App for Imp019App {
                                         let stats = player.get_stats();
 
                                         if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(Some(*id), *player_id);
+                                            mode = Mode::Player(*disp_league, *player_id, Some(*id));
                                         }
                                         ui.label(player.pos.to_str());
                                         ui.label(format!("{}", stats.g));
@@ -781,18 +777,18 @@ impl epi::App for Imp019App {
 
                     mode
                 }
-                Mode::Player(team_id, player_id) => {
-                    let mut mode = Mode::Player(*team_id, *player_id);
+                Mode::Player(disp_league, player_id, team_id) => {
+                    let mut mode = Mode::Player(*disp_league, *player_id, *team_id);
 
                     let player = self.players.get(player_id).unwrap();
 
                     if ui.button("Close").clicked() {
                         if let Some(team_id) = team_id {
-                            mode = Mode::Team(*team_id);
+                            mode = Mode::Team(*disp_league, *team_id);
                         } else if player.pos.is_pitcher() {
-                            mode = Mode::PitLeaders(Stat::Pw, true);
+                            mode = Mode::PitLeaders(*disp_league, Stat::Pw, true);
                         } else {
-                            mode = Mode::BatLeaders(Stat::Bhr, true);
+                            mode = Mode::BatLeaders(*disp_league, Stat::Bhr, true);
                         }
                     }
                     ui.label(format!("Name: {}", player.fullname()));
@@ -919,60 +915,61 @@ impl epi::App for Imp019App {
 
                     mode
                 }
-                Mode::BatLeaders(result, reverse) => {
-                    let mut mode = Mode::BatLeaders(*result, *reverse);
+                Mode::BatLeaders(disp_league, result, reverse) => {
+                    let league = &self.leagues[*disp_league];
+                    let mut mode = Mode::BatLeaders(*disp_league, *result, *reverse);
 
                     egui::Grid::new("bleaders").striped(true).show(ui, |ui| {
                         ui.label("#");
                         ui.label("Name");
                         ui.label("Team");
                         if ui.button("G").clicked() {
-                            mode = select_bat_stat(Stat::G, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::G, *result, *reverse, true);
                         }
                         if ui.button("GS").clicked() {
-                            mode = select_bat_stat(Stat::Gs, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Gs, *result, *reverse, true);
                         }
                         if ui.button("PA").clicked() {
-                            mode = select_bat_stat(Stat::Bpa, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bpa, *result, *reverse, true);
                         }
                         if ui.button("AB").clicked() {
-                            mode = select_bat_stat(Stat::Bab, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bab, *result, *reverse, true);
                         }
                         if ui.button("H").clicked() {
-                            mode = select_bat_stat(Stat::Bh, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bh, *result, *reverse, true);
                         }
                         if ui.button("2B").clicked() {
-                            mode = select_bat_stat(Stat::B2b, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::B2b, *result, *reverse, true);
                         }
                         if ui.button("3B").clicked() {
-                            mode = select_bat_stat(Stat::B3b, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::B3b, *result, *reverse, true);
                         }
                         if ui.button("HR").clicked() {
-                            mode = select_bat_stat(Stat::Bhr, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bhr, *result, *reverse, true);
                         }
                         if ui.button("BB").clicked() {
-                            mode = select_bat_stat(Stat::Bbb, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bbb, *result, *reverse, true);
                         }
                         if ui.button("HBP").clicked() {
-                            mode = select_bat_stat(Stat::Bhbp, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bhbp, *result, *reverse, true);
                         }
                         if ui.button("SO").clicked() {
-                            mode = select_bat_stat(Stat::Bso, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bso, *result, *reverse, true);
                         }
                         if ui.button("R").clicked() {
-                            mode = select_bat_stat(Stat::Br, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Br, *result, *reverse, true);
                         }
                         if ui.button("RBI").clicked() {
-                            mode = select_bat_stat(Stat::Brbi, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Brbi, *result, *reverse, true);
                         }
                         if ui.button("AVG").clicked() {
-                            mode = select_bat_stat(Stat::Bavg, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bavg, *result, *reverse, true);
                         }
                         if ui.button("OBP").clicked() {
-                            mode = select_bat_stat(Stat::Bobp, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bobp, *result, *reverse, true);
                         }
                         if ui.button("SLG").clicked() {
-                            mode = select_bat_stat(Stat::Bslg, *result, *reverse, true);
+                            mode = select_bat_stat(*disp_league, Stat::Bslg, *result, *reverse, true);
                         }
                         ui.end_row();
 
@@ -998,7 +995,7 @@ impl epi::App for Imp019App {
 
                             ui.label(format!("{}", rank + 1));
                             if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
-                                mode = Mode::Player(None, *ap.3);
+                                mode = Mode::Player(*disp_league, *ap.3, None);
                             }
                             ui.label(ap.0);
 
@@ -1027,8 +1024,9 @@ impl epi::App for Imp019App {
 
                     mode
                 }
-                Mode::PitLeaders(result, reverse) => {
-                    let mut mode = Mode::PitLeaders(*result, *reverse);
+                Mode::PitLeaders(disp_league, result, reverse) => {
+                    let league = &self.leagues[*disp_league];
+                    let mut mode = Mode::PitLeaders(*disp_league, *result, *reverse);
 
                     egui::Grid::new("pleaders").striped(true).show(ui, |ui| {
                         ui.label("#");
@@ -1036,73 +1034,73 @@ impl epi::App for Imp019App {
                         ui.label("Team");
                         ui.label("Pos");
                         if ui.button("G").clicked() {
-                            mode = select_pit_stat(Stat::G, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::G, *result, *reverse, true);
                         }
                         if ui.button("W").clicked() {
-                            mode = select_pit_stat(Stat::Pw, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Pw, *result, *reverse, true);
                         }
                         if ui.button("L").clicked() {
-                            mode = select_pit_stat(Stat::Pl, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Pl, *result, *reverse, true);
                         }
                         if ui.button("SV").clicked() {
-                            mode = select_pit_stat(Stat::Psv, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Psv, *result, *reverse, true);
                         }
                         if ui.button("HLD").clicked() {
-                            mode = select_pit_stat(Stat::Phld, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Phld, *result, *reverse, true);
                         }
                         if ui.button("CG").clicked() {
-                            mode = select_pit_stat(Stat::Pcg, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Pcg, *result, *reverse, true);
                         }
                         if ui.button("SHO").clicked() {
-                            mode = select_pit_stat(Stat::Psho, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Psho, *result, *reverse, true);
                         }
                         if ui.button("IP").clicked() {
-                            mode = select_pit_stat(Stat::Po, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Po, *result, *reverse, true);
                         }
                         if ui.button("BF").clicked() {
-                            mode = select_pit_stat(Stat::Pbf, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Pbf, *result, *reverse, true);
                         }
                         if ui.button("H").clicked() {
-                            mode = select_pit_stat(Stat::Ph, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Ph, *result, *reverse, true);
                         }
                         if ui.button("2B").clicked() {
-                            mode = select_pit_stat(Stat::P2b, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::P2b, *result, *reverse, true);
                         }
                         if ui.button("3B").clicked() {
-                            mode = select_pit_stat(Stat::P3b, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::P3b, *result, *reverse, true);
                         }
                         if ui.button("HR").clicked() {
-                            mode = select_pit_stat(Stat::Phr, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Phr, *result, *reverse, true);
                         }
                         if ui.button("BB").clicked() {
-                            mode = select_pit_stat(Stat::Pbb, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Pbb, *result, *reverse, true);
                         }
                         if ui.button("HBP").clicked() {
-                            mode = select_pit_stat(Stat::Phbp, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Phbp, *result, *reverse, true);
                         }
                         if ui.button("SO").clicked() {
-                            mode = select_pit_stat(Stat::Pso, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Pso, *result, *reverse, true);
                         }
                         if ui.button("R").clicked() {
-                            mode = select_pit_stat(Stat::Pr, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Pr, *result, *reverse, true);
                         }
                         if ui.button("ER").clicked() {
-                            mode = select_pit_stat(Stat::Per, *result, *reverse, true);
+                            mode = select_pit_stat(*disp_league, Stat::Per, *result, *reverse, true);
                         }
                         if ui.button("ERA").clicked() {
-                            mode = select_pit_stat(Stat::Pera, *result, *reverse, false);
+                            mode = select_pit_stat(*disp_league, Stat::Pera, *result, *reverse, false);
                         }
                         if ui.button("WHIP").clicked() {
-                            mode = select_pit_stat(Stat::Pwhip, *result, *reverse, false);
+                            mode = select_pit_stat(*disp_league, Stat::Pwhip, *result, *reverse, false);
                         }
                         if ui.button("AVG").clicked() {
-                            mode = select_pit_stat(Stat::Pavg, *result, *reverse, false);
+                            mode = select_pit_stat(*disp_league, Stat::Pavg, *result, *reverse, false);
                         }
                         if ui.button("OBP").clicked() {
-                            mode = select_pit_stat(Stat::Pobp, *result, *reverse, false);
+                            mode = select_pit_stat(*disp_league, Stat::Pobp, *result, *reverse, false);
                         }
                         if ui.button("SLG").clicked() {
-                            mode = select_pit_stat(Stat::Pslg, *result, *reverse, false);
+                            mode = select_pit_stat(*disp_league, Stat::Pslg, *result, *reverse, false);
                         }
                         ui.end_row();
 
@@ -1128,7 +1126,7 @@ impl epi::App for Imp019App {
 
                             ui.label(format!("{}", rank + 1));
                             if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
-                                mode = Mode::Player(None, *ap.3);
+                                mode = Mode::Player(*disp_league, *ap.3, None);
                             }
                             ui.label(ap.0);
                             ui.label(player.pos.to_str());
