@@ -43,7 +43,7 @@ pub(crate) struct Team {
     pub(crate) abbr: String,
     city: String,
     state: String,
-    nickname: String,
+    pub(crate) nickname: String,
     pub(crate) players: Vec<PlayerId>,
     pub(crate) rotation: [PlayerId; 5],
     pub(crate) results: Results,

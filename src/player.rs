@@ -155,11 +155,17 @@ pub(crate) enum Stat {
     Fe,
 }
 
+impl Stat {
+    pub(crate) fn is_batting(&self) -> bool {
+        matches!(self, Stat::B1b | Stat::B2b | Stat::B3b | Stat::Bhr | Stat::Bbb | Stat::Bhbp | Stat::Bso | Stat::Bo | Stat::Br | Stat::Brbi | Stat::Bh | Stat::Bab | Stat::Bpa | Stat::Bavg | Stat::Bobp | Stat::Bslg)
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct Stats {
     pub(crate) g: u32,
     pub(crate) gs: u32,
-    b_1b: u32,
+    pub(crate) b_1b: u32,
     pub(crate) b_2b: u32,
     pub(crate) b_3b: u32,
     pub(crate) b_hr: u32,
@@ -168,7 +174,7 @@ pub(crate) struct Stats {
     pub(crate) b_r: u32,
     pub(crate) b_rbi: u32,
     pub(crate) b_so: u32,
-    b_o: u32,
+    pub(crate) b_o: u32,
     pub(crate) b_h: u32,
     pub(crate) b_ab: u32,
     pub(crate) b_pa: u32,
@@ -176,7 +182,7 @@ pub(crate) struct Stats {
     pub(crate) b_obp: u32,
     pub(crate) b_slg: u32,
 
-    p_1b: u32,
+    pub(crate) p_1b: u32,
     pub(crate) p_2b: u32,
     pub(crate) p_3b: u32,
     pub(crate) p_hr: u32,
@@ -277,7 +283,7 @@ impl Stats {
         Self::div1000_or_0(3 * (h + bb), o)
     }
 
-    fn calculate(&mut self) {
+    fn calculate(mut self) -> Self {
         self.b_h = self.b_1b + self.b_2b + self.b_3b + self.b_hr;
         self.b_ab = self.b_h + self.b_o;
         self.b_pa = self.b_ab + self.b_bb + self.b_hbp;
@@ -296,6 +302,8 @@ impl Stats {
         self.p_slg = Self::calc_slg1000(p_ab, self.p_1b, self.p_2b, self.p_3b, self.p_hr);
         self.p_era = Self::calc_era1000(self.p_er, self.p_o);
         self.p_whip = Self::calc_whip1000(self.p_h, self.p_bb, self.p_o);
+
+        self
     }
 }
 
@@ -309,7 +317,7 @@ pub(crate) struct HistoricalStats {
 
 impl HistoricalStats {
     pub(crate) fn get_stats(&self) -> Stats {
-        let mut stats = Stats {
+        let stats = Stats {
             g: *self.stats.get(&Stat::G).unwrap_or(&0),
             gs: *self.stats.get(&Stat::Gs).unwrap_or(&0),
             b_1b: *self.stats.get(&Stat::B1b).unwrap_or(&0),
@@ -343,9 +351,7 @@ impl HistoricalStats {
             ..Stats::default()
         };
 
-        stats.calculate();
-
-        stats
+        stats.calculate()
     }
 }
 
@@ -385,30 +391,30 @@ pub(crate) enum Expect {
 }
 
 impl Expect {
-    pub(crate) fn to_batting_stat(&self) -> Stat {
+    pub(crate) fn to_batting_stat(&self) -> Option<Stat> {
         match self {
-            Self::Single => Stat::B1b,
-            Self::Double => Stat::B2b,
-            Self::Triple => Stat::B3b,
-            Self::HomeRun => Stat::Bhr,
-            Self::Walk => Stat::Bbb,
-            Self::HitByPitch => Stat::Bhbp,
-            Self::Strikeout => Stat::Bso,
-            Self::Out => Stat::Bo,
-            Self::Error => Stat::Bo,
+            Self::Single => Some(Stat::B1b),
+            Self::Double => Some(Stat::B2b),
+            Self::Triple => Some(Stat::B3b),
+            Self::HomeRun => Some(Stat::Bhr),
+            Self::Walk => Some(Stat::Bbb),
+            Self::HitByPitch => Some(Stat::Bhbp),
+            Self::Strikeout => Some(Stat::Bso),
+            Self::Out => Some(Stat::Bo),
+            Self::Error => Some(Stat::Bo),
         }
     }
-    pub(crate) fn to_pitching_stat(&self) -> Stat {
+    pub(crate) fn to_pitching_stat(&self) -> Option<Stat> {
         match self {
-            Self::Single => Stat::P1b,
-            Self::Double => Stat::P2b,
-            Self::Triple => Stat::P3b,
-            Self::HomeRun => Stat::Phr,
-            Self::Walk => Stat::Pbb,
-            Self::HitByPitch => Stat::Phbp,
-            Self::Strikeout => Stat::Pso,
-            Self::Out => Stat::Po,
-            Self::Error => Stat::Po,
+            Self::Single => Some(Stat::P1b),
+            Self::Double => Some(Stat::P2b),
+            Self::Triple => Some(Stat::P3b),
+            Self::HomeRun => Some(Stat::Phr),
+            Self::Walk => Some(Stat::Pbb),
+            Self::HitByPitch => Some(Stat::Phbp),
+            Self::Strikeout => Some(Stat::Pso),
+            Self::Out => Some(Stat::Po),
+            Self::Error => None,
         }
     }
 }
@@ -693,6 +699,10 @@ impl Player {
         format!("{} {}", self.name_first, self.name_last)
     }
 
+    pub(crate) fn fname(&self) -> String {
+        format!("{}. {}", self.name_first.chars().next().unwrap(), self.name_last)
+    }
+
     fn reset_stats(&mut self) {
         self.stat_stream.clear();
     }
@@ -725,21 +735,24 @@ impl Player {
     }
 
     pub(crate) fn get_stats(&self) -> Stats {
+        Self::compile_stats(&self.stat_stream)
+    }
+
+    pub(crate) fn compile_stats(stream: &Vec<Stat>) -> Stats {
         let mut stats = Stats {
             ..Stats::default()
         };
-
-        for stat in &self.stat_stream {
+        for stat in stream.iter() {
             match stat {
                 Stat::G => stats.g += 1,
-                Stat::Gs => stats.gs += 1,
+                Stat::Gs => { stats.gs += 1; stats.g += 1},
                 Stat::B1b => stats.b_1b += 1,
                 Stat::B2b => stats.b_2b += 1,
                 Stat::B3b => stats.b_3b += 1,
                 Stat::Bhr => stats.b_hr += 1,
                 Stat::Bbb => stats.b_bb += 1,
                 Stat::Bhbp => stats.b_hbp += 1,
-                Stat::Bso => stats.b_so += 1,
+                Stat::Bso => { stats.b_so += 1; stats.b_o += 1 },
                 Stat::Bo => stats.b_o += 1,
                 Stat::Br => stats.b_r += 1,
                 Stat::Brbi => stats.b_rbi += 1,
@@ -749,10 +762,10 @@ impl Player {
                 Stat::Phr => stats.p_hr += 1,
                 Stat::Pbb => stats.p_bb += 1,
                 Stat::Phbp => stats.p_hbp += 1,
-                Stat::Pso => stats.p_so += 1,
+                Stat::Pso => { stats.p_so += 1; stats.p_o += 1 },
                 Stat::Po => stats.p_o += 1,
                 Stat::Pr => stats.p_r += 1,
-                Stat::Per => stats.p_er += 1,
+                Stat::Per => { stats.p_er += 1; stats.p_r += 1 },
                 Stat::Pw => stats.p_w += 1,
                 Stat::Pl => stats.p_l += 1,
                 Stat::Psv => stats.p_sv += 1,
@@ -765,9 +778,7 @@ impl Player {
             }
         }
 
-        stats.calculate();
-
-        stats
+        stats.calculate()
     }
 
     pub(crate) fn age(&self, year: u32) -> u32 {

@@ -1,20 +1,22 @@
 use std::collections::{HashMap, HashSet};
 
 use eframe::{egui, epi};
-use eframe::egui::{Button, Ui};
+use eframe::egui::{Button, ScrollArea, Ui};
 use ordinal::Ordinal;
 use rand::rngs::ThreadRng;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
-use crate::player::{generate_players, PlayerId, PlayerMap, Stat};
+use crate::player::{generate_players, Player, PlayerId, PlayerMap, Stat};
 use crate::player;
-use crate::schedule::Game;
+use crate::schedule::{Game, GameLogEvent, Scoreboard};
 use crate::team::{Team, TeamId, TeamMap};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Mode {
     Schedule,
+    BoxScore(usize),
+    GameLog(usize),
     Standings,
     Team(TeamId),
     Player(Option<TeamId>, PlayerId),
@@ -127,11 +129,13 @@ fn select_pit_stat(new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool)
     Mode::PitLeaders(new_stat, flip)
 }
 
-fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) {
+fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) -> bool {
     let home_team = teams.get(&game.home.id).unwrap();
     let away_team = teams.get(&game.away.id).unwrap();
 
     let complete = game.away.r != game.home.r;
+
+    let mut clicked = false;
 
     ui.group(|ui| {
         ui.vertical(|ui| {
@@ -163,8 +167,103 @@ fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) {
                     ui.monospace(format!("@ {}", home_team.abbr));
                 }
             });
+            clicked = complete && ui.button("Box Score").clicked();
         });
     });
+
+    clicked
+}
+
+fn display_bo(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
+    ui.label(format!("{} {} Batters", team.abbr, team.nickname));
+    ui.monospace("AB");
+    ui.monospace("R");
+    ui.monospace("H");
+    ui.monospace("RBI");
+    ui.monospace("BB");
+    ui.monospace("SO");
+    ui.monospace("AVG");
+    ui.monospace("OPS");
+    ui.end_row();
+
+    for (idx, def) in scoreboard.bo.iter().enumerate() {
+        let batter = players.get(&def.player).unwrap();
+
+        let stats = Player::compile_stats(stat_map.get(&def.player).unwrap_or(&Vec::new()));
+        let full_stats = batter.get_stats();
+
+        ui.label(format!("{}. {} {}", idx + 1, batter.fname(), def.pos.to_str()));
+        ui.monospace(format!("{}", stats.b_ab));
+        ui.monospace(format!("{}", stats.b_r));
+        ui.monospace(format!("{}", stats.b_h));
+        ui.monospace(format!("{}", stats.b_rbi));
+        ui.monospace(format!("{}", stats.b_bb));
+        ui.monospace(format!("{}", stats.b_so));
+        ui.monospace(format!("{}.{:03}", full_stats.b_avg / 1000, full_stats.b_avg % 1000));
+        let ops = full_stats.b_obp + full_stats.b_slg;
+        ui.monospace(format!("{}.{:03}", ops / 1000, ops % 1000));
+        ui.end_row();
+    }
+}
+
+fn display_pitching(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
+    ui.label(format!("{} {} Pitchers", team.abbr, team.nickname));
+    ui.monospace("IP");
+    ui.monospace("H");
+    ui.monospace("R");
+    ui.monospace("ER");
+    ui.monospace("BB");
+    ui.monospace("SO");
+    ui.monospace("HR");
+    ui.monospace("ERA");
+    ui.end_row();
+
+    for rec in scoreboard.pitcher_record.iter() {
+        let pitcher = players.get(&rec.pitcher).unwrap();
+
+        let stats = Player::compile_stats(stat_map.get(&rec.pitcher).unwrap_or(&Vec::new()));
+        let full_stats = pitcher.get_stats();
+
+        ui.label(pitcher.fname());
+        ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
+        ui.monospace(format!("{}", stats.p_h));
+        ui.monospace(format!("{}", stats.p_r));
+        ui.monospace(format!("{}", stats.p_er));
+        ui.monospace(format!("{}", stats.p_bb));
+        ui.monospace(format!("{}", stats.p_so));
+        ui.monospace(format!("{}", stats.p_hr));
+        ui.monospace(format!("{}.{:03}", full_stats.p_era / 1000, full_stats.p_era % 1000));
+        ui.end_row();
+    }
+}
+
+fn for_each_event<T>(game: &Game, mut action: T) where T: FnMut(usize, bool, &GameLogEvent, bool) {
+    let mut inning = 1;
+    let mut tophalf = true;
+    let mut outs = 0;
+
+    let mut error = false;
+    for event in game.playbyplay.iter() {
+        action(inning, tophalf, event, error);
+
+        if event.event == Stat::Fe {
+            error = true;
+        }
+
+        if event.event == Stat::Bo || event.event == Stat::Bso {
+            if !error {
+                outs += 1;
+            }
+            error = false;
+            if outs == 3 {
+                if !tophalf {
+                    inning += 1;
+                }
+                tophalf = !tophalf;
+                outs = 0;
+            }
+        }
+    }
 }
 
 
@@ -249,14 +348,12 @@ impl epi::App for Imp019App {
                                 for idx in cur_idx..(cur_idx + half_teams) {
                                     let game = &league.schedule.games[idx];
                                     display_game(ui, game, &self.teams);
-                                    if ((idx - cur_idx + 1) % 5) == 0 {
-                                        ui.end_row();
-                                    }
                                 }
                             });
                         });
                     }
 
+                    let mut mode = Mode::Schedule;
                     if cur_idx > 0 {
                         ui.heading("Yesterday");
                         let end = cur_idx as i32;
@@ -266,8 +363,10 @@ impl epi::App for Imp019App {
                                 for past_idx in start..end {
                                     if past_idx >= 0 {
                                         let game = &league.schedule.games[past_idx as usize];
-                                        display_game(ui, game, &self.teams);
-                                        if ((past_idx - start + 1) % 4) == 0 {
+                                        if display_game(ui, game, &self.teams) {
+                                            mode = Mode::BoxScore(past_idx as usize)
+                                        }
+                                        if ((past_idx - start + 1) % 5) == 0 {
                                             ui.end_row();
                                         }
                                     }
@@ -275,7 +374,210 @@ impl epi::App for Imp019App {
                             });
                         });
                     }
-                    Mode::Schedule
+                    mode
+                }
+                Mode::BoxScore(game_idx) => {
+                    let mut mode = Mode::BoxScore(*game_idx);
+                    let game = &league.schedule.games[*game_idx];
+
+                    let awayteam = self.teams.get(&game.away.id).unwrap();
+                    let hometeam = self.teams.get(&game.home.id).unwrap();
+
+                    let mut awayruns = Vec::new();
+                    let mut homeruns = Vec::new();
+
+                    ui.horizontal(|ui| {
+                        if ui.button("Back").clicked() {
+                            mode = Mode::Schedule;
+                        }
+                        if ui.button("Game Log").clicked() {
+                            mode = Mode::GameLog(*game_idx);
+                        }
+                    });
+
+
+                    let mut winner = None;
+                    let mut loser = None;
+                    let mut save = None;
+
+                    let mut stat_map = HashMap::new();
+
+                    for_each_event(game, |inning, tophalf, event, _| {
+                        let player_stats = stat_map.entry(event.player).or_insert_with(Vec::new);
+                        player_stats.push(event.event);
+
+                        match event.event {
+                            Stat::Pw => winner = Some(event.player),
+                            Stat::Pl => loser = Some(event.player),
+                            Stat::Psv => save = Some(event.player),
+                            _ => {}
+                        };
+
+                        let skip = matches!(event.event, Stat::Pw|Stat::Pcg|Stat::Psho|Stat::Pl|Stat::Psv|Stat::Phld|Stat::Po|Stat::Pso);
+
+                        if !skip {
+                            let runs = if tophalf { &mut awayruns } else { &mut homeruns };
+                            if runs.len() < inning {
+                                runs.push(0);
+                            }
+                            if event.event == Stat::Br {
+                                runs[inning - 1] += 1;
+                            }
+                        }
+                    });
+
+                    egui::Grid::new("Innings").show(ui, |ui| {
+                        ui.monospace("   ");
+                        for inning in 1..=awayruns.len().max(homeruns.len()) {
+                            ui.monospace(format!("{}", inning));
+                        }
+                        ui.monospace("  R");
+                        ui.monospace("  H");
+                        ui.monospace("  E");
+                        ui.end_row();
+                        ui.monospace(&awayteam.abbr);
+                        for awayrun in awayruns.iter() {
+                            ui.monospace(format!("{}", awayrun));
+                        }
+                        ui.monospace(format!("{:3}", game.away.r));
+                        ui.monospace(format!("{:3}", game.away.h));
+                        ui.monospace(format!("{:3}", game.away.e));
+                        ui.end_row();
+                        ui.monospace(&hometeam.abbr);
+                        for homerun in homeruns.iter() {
+                            ui.monospace(format!("{}", homerun));
+                        }
+                        if awayruns.len() > homeruns.len() {
+                            ui.monospace("X");
+                        }
+                        ui.monospace(format!("{:3}", game.home.r));
+                        ui.monospace(format!("{:3}", game.home.h));
+                        ui.monospace(format!("{:3}", game.home.e));
+                        ui.end_row();
+                    });
+
+                    ui.horizontal(|ui| {
+                        if let Some(w) = winner {
+                            let pitcher = self.players.get(&w).unwrap();
+                            ui.label(format!("W: {}", pitcher.fname()));
+                        }
+                        if let Some(l) = loser {
+                            let pitcher = self.players.get(&l).unwrap();
+                            ui.label(format!("L: {}", pitcher.fname()));
+                        }
+                        if let Some(sv) = save {
+                            let pitcher = self.players.get(&sv).unwrap();
+                            ui.label(format!("SV: {}", pitcher.fname()));
+                        }
+                    });
+
+                    ui.separator();
+
+                    ui.columns(2, |cols| {
+                        for (i, col) in cols.iter_mut().enumerate() {
+                            match i {
+                                0 => {
+                                    egui::Grid::new("Away Batting").show(col, |ui| {
+                                        display_bo(ui, &game.away, awayteam, &self.players, &stat_map);
+                                    });
+                                }
+                                1 => {
+                                    egui::Grid::new("Home Batting").show(col, |ui| {
+                                        display_bo(ui, &game.home, hometeam, &self.players, &stat_map);
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    });
+
+                    ui.separator();
+
+                    ui.columns(2, |cols| {
+                        for (i, col) in cols.iter_mut().enumerate() {
+                            match i {
+                                0 => {
+                                    egui::Grid::new("Away Pitching").show(col, |ui| {
+                                        display_pitching(ui, &game.away, awayteam, &self.players, &stat_map);
+                                    });
+                                }
+                                1 => {
+                                    egui::Grid::new("Home Pitching").show(col, |ui| {
+                                        display_pitching(ui, &game.home, hometeam, &self.players, &stat_map);
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    });
+
+                    ui.separator();
+
+                    mode
+                }
+                Mode::GameLog(game_idx) => {
+                    let mut mode = Mode::GameLog(*game_idx);
+                    let game = &league.schedule.games[*game_idx];
+
+                    if ui.button("Box Score").clicked() {
+                        mode = Mode::BoxScore(*game_idx);
+                    }
+
+                    ScrollArea::auto_sized().show(ui, |ui| {
+                        let mut prevhalf = false;
+                        let mut previnn = 0;
+
+                        for_each_event(game, |inning, tophalf, event, error| {
+                            let player = self.players.get(&event.player).unwrap();
+                            let player_str = player.fullname();
+
+                            let pitching_change = event.event == Stat::G && player.pos.is_pitcher();
+
+                            if !pitching_change && (!event.event.is_batting() || event.event == Stat::Brbi) {
+                                return;
+                            }
+
+                            if prevhalf != tophalf || previnn != inning {
+                                ui.heading(format!("{} of the {}", if tophalf { "Top" } else { "Bottom" }, Ordinal(inning)));
+                                prevhalf = tophalf;
+                                previnn = inning;
+                            }
+
+
+                            if pitching_change {
+                                ui.label(format!("{} is now pitching.", player_str));
+                                return;
+                            }
+
+
+                            let target_str = if let Some(target) = event.target {
+                                format!(" to {}", target.to_str())
+                            } else {
+                                "".to_string()
+                            };
+
+                            let label_str = match event.event {
+                                Stat::B1b => format!("{} singles{}.", player_str, target_str),
+                                Stat::B2b => format!("{} doubles{}.", player_str, target_str),
+                                Stat::B3b => format!("{} triples{}.", player_str, target_str),
+                                Stat::Bhr => format!("{} homers{}.", player_str, target_str),
+                                Stat::Bbb => format!("{} walks.", player_str),
+                                Stat::Bhbp => format!("{} is hit by pitch.", player_str),
+                                Stat::Bso => format!("{} strikes out.", player_str),
+                                Stat::Bo => if error {
+                                    format!("{} reaches on error{}.", player_str, target_str)
+                                } else {
+                                    format!("{} flies out{}.", player_str, target_str)
+                                },
+                                Stat::Br => format!("{} scores.", player_str),
+                                _ => "".to_string()
+                            };
+
+                            ui.label(label_str);
+                        });
+                    });
+
+                    mode
                 }
                 Mode::Standings => {
                     let mut mode = Mode::Standings;
@@ -867,6 +1169,7 @@ impl epi::App for Imp019App {
         });
     }
 
+
     /// Called by the framework to load old app state (if any).
     #[cfg(feature = "persistence")]
     fn load(&mut self, storage: &dyn epi::Storage) {
@@ -881,5 +1184,10 @@ impl epi::App for Imp019App {
 
     fn name(&self) -> &str {
         "imp019"
+    }
+
+    fn max_size_points(&self) -> egui::Vec2 {
+        // Some browsers get slow with huge WebGL canvases, so we limit the size:
+        egui::Vec2::new(2048.0, 1024.0)
     }
 }

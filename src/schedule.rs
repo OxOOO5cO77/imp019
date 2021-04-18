@@ -17,14 +17,14 @@ struct RunnerInfo {
 }
 
 #[derive(Clone, Default)]
-struct DefenseInfo {
-    player: PlayerId,
-    pos: Position,
+pub(crate) struct DefenseInfo {
+    pub(crate) player: PlayerId,
+    pub(crate) pos: Position,
 }
 
 #[derive(Clone, Default)]
-struct PitcherRecord {
-    pitcher: PlayerId,
+pub(crate) struct PitcherRecord {
+    pub(crate) pitcher: PlayerId,
     outs: u8,
     run_diff_in: i8,
     run_diff_out: i8,
@@ -38,13 +38,13 @@ pub(crate) struct Scoreboard {
     pub(crate) e: u8,
     onbase: [Option<RunnerInfo>; 4],
     runs_in: Vec<RunnerInfo>,
-    bo: [DefenseInfo; 9],
+    pub(crate) bo: [DefenseInfo; 9],
     ab: usize,
     pitcher: PlayerId,
     pitches: u32,
     pitcher_outs: u8,
     pitcher_run_diff_in: i8,
-    pitcher_record: Vec<PitcherRecord>,
+    pub(crate) pitcher_record: Vec<PitcherRecord>,
 }
 
 impl Scoreboard {
@@ -112,13 +112,19 @@ struct Inning {
     half: InningHalf,
 }
 
+pub(crate) struct GameLogEvent {
+    pub(crate) player: PlayerId,
+    pub(crate) event: Stat,
+    pub(crate) target: Option<Position>,
+}
+
+pub(crate) type GameLog = Vec<GameLogEvent>;
+
 #[derive(Default)]
 pub(crate) struct Game {
     pub(crate) home: Scoreboard,
     pub(crate) away: Scoreboard,
-    inning: Inning,
-    outs: u8,
-    virtual_outs: u8,
+    pub(crate) playbyplay: GameLog,
 }
 
 lazy_static! {
@@ -142,21 +148,16 @@ impl Game {
         Self {
             home: Scoreboard::new(home),
             away: Scoreboard::new(away),
-            inning: Inning {
-                number: 1,
-                half: InningHalf::Top,
-            },
-            outs: 0,
-            virtual_outs: 0,
+            playbyplay: Vec::new(),
         }
     }
 
-    fn complete(&self) -> bool {
-        self.inning.number >= 9 && ((self.inning.half != InningHalf::Top && self.home.r > self.away.r) || (self.inning.half == InningHalf::End && self.away.r > self.home.r))
+    fn is_complete(&self, inning: &Inning) -> bool {
+        inning.number >= 9 && ((inning.half != InningHalf::Top && self.home.r > self.away.r) || (inning.half == InningHalf::End && self.away.r > self.home.r))
     }
 
-    fn is_away_ab(&self) -> bool {
-        self.inning.half == InningHalf::Top || self.inning.half == InningHalf::Middle
+    fn is_away_ab(&self, inning: &Inning) -> bool {
+        inning.half == InningHalf::Top || inning.half == InningHalf::Middle
     }
 
     fn matchup_morey_z(batter: f64, pitcher: f64, league: f64) -> f64 {
@@ -167,15 +168,17 @@ impl Game {
         (left * sqrt_league) + league
     }
 
-    fn setup_pitcher(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard) -> Handedness {
+    fn setup_pitcher(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard, boxscore: &mut GameLog) -> Handedness {
         let team = teams.get_mut(&scoreboard.id).unwrap();
         scoreboard.pitcher = team.rotation[0];
-        let pitcher = Self::record_stat(players, team.rotation[0], Stat::Gs);
+        Self::record_stat(boxscore, team.rotation[0], Stat::Gs, None);
         team.rotation.rotate_left(1);
+
+        let pitcher = players.get_mut(&scoreboard.pitcher).unwrap();
         pitcher.throws
     }
 
-    fn setup_bo(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard, year: u32, rng: &mut ThreadRng) {
+    fn setup_bo(players: &mut PlayerMap, teams: &mut TeamMap, scoreboard: &mut Scoreboard, boxscore: &mut GameLog, year: u32, rng: &mut ThreadRng) {
         let team = teams.get_mut(&scoreboard.id).unwrap();
         let mut team_players = team.players.iter().map(|o| (*o, players.get(o).unwrap())).filter(|o| !o.1.pos.is_pitcher()).collect::<Vec<_>>();
         team_players.sort_by_cached_key(|o| o.1.get_stats().b_obp);
@@ -203,19 +206,19 @@ impl Game {
         }
 
         for starter in scoreboard.bo.iter() {
-            let player = Self::record_stat(players, starter.player, Stat::Gs);
+            Self::record_stat(boxscore, starter.player, Stat::Gs, None);
+
+            let player = players.get_mut(&starter.player).unwrap();
             player.fatigue += 1;
         }
     }
 
-    fn setup_game(&mut self, players: &mut PlayerMap, teams: &mut TeamMap, year: u32, rng: &mut ThreadRng) {
-        let _home_hand = Self::setup_pitcher(players, teams, &mut self.home);
-        let _away_hand = Self::setup_pitcher(players, teams, &mut self.away);
+    fn setup_game(&mut self, players: &mut PlayerMap, teams: &mut TeamMap, boxscore: &mut GameLog, year: u32, rng: &mut ThreadRng) {
+        let _home_hand = Self::setup_pitcher(players, teams, &mut self.home, boxscore);
+        let _away_hand = Self::setup_pitcher(players, teams, &mut self.away, boxscore);
 
-        Self::setup_bo(players, teams, &mut self.home, year, rng);
-        Self::setup_bo(players, teams, &mut self.away, year, rng);
-
-        self.inning.number = 1;
+        Self::setup_bo(players, teams, &mut self.home, boxscore, year, rng);
+        Self::setup_bo(players, teams, &mut self.away, boxscore, year, rng);
     }
 
     fn get_expected_pa(batter: &HashMap<Expect, f64>, pitcher: &HashMap<Expect, f64>, rng: &mut ThreadRng) -> Expect {
@@ -228,28 +231,24 @@ impl Game {
         }).collect::<Vec<_>>().choose_weighted(rng, |o| o.1).unwrap().0
     }
 
-    fn record_stat(players: &mut PlayerMap, player_id: PlayerId, stat: Stat) -> &mut Player {
-        let player = players.get_mut(&player_id).unwrap();
-        player.record_stat(stat);
-        match stat {
-            Stat::Bso => player.record_stat(Stat::Bo),
-            Stat::Pso => player.record_stat(Stat::Po),
-            Stat::Gs => player.record_stat(Stat::G),
-            _ => {}
-        }
-        player
+    fn record_stat(boxscore: &mut GameLog, player: PlayerId, event: Stat, target: Option<Position>) {
+        boxscore.push(GameLogEvent {
+            player,
+            event,
+            target,
+        });
     }
 
-    fn batting_pitching(&mut self) -> (&mut Scoreboard, &Scoreboard) {
-        if self.is_away_ab() { (&mut self.away, &self.home) } else { (&mut self.home, &self.away) }
+    fn batting_pitching(&mut self, inning: &Inning) -> (&mut Scoreboard, &Scoreboard) {
+        if self.is_away_ab(inning) { (&mut self.away, &self.home) } else { (&mut self.home, &self.away) }
     }
 
-    fn batting(&mut self) -> &mut Scoreboard {
-        if self.is_away_ab() { &mut self.away } else { &mut self.home }
+    fn batting(&mut self, inning: &Inning) -> &mut Scoreboard {
+        if self.is_away_ab(inning) { &mut self.away } else { &mut self.home }
     }
 
-    fn pitching(&mut self) -> &mut Scoreboard {
-        if self.is_away_ab() { &mut self.home } else { &mut self.away }
+    fn pitching(&mut self, inning: &Inning) -> &mut Scoreboard {
+        if self.is_away_ab(inning) { &mut self.home } else { &mut self.away }
     }
 
     fn check_for_error(players: &PlayerMap, fielder_id: PlayerId, result: Expect, rng: &mut ThreadRng) -> Expect {
@@ -272,15 +271,13 @@ impl Game {
         }
     }
 
-    fn sub_pitcher(&mut self, teams: &mut TeamMap, players: &mut PlayerMap, rng: &mut ThreadRng) {
-        let inning = self.inning.number;
-
-        let bat_scoreboard = self.batting();
+    fn sub_pitcher(&mut self, inning: &Inning, teams: &mut TeamMap, players: &mut PlayerMap, boxscore: &mut GameLog, rng: &mut ThreadRng) {
+        let bat_scoreboard = self.batting(inning);
         let bat_r = bat_scoreboard.r as i8;
         //let batter_id = bat_scoreboard.bo[bat_scoreboard.ab].player;
         //let batter_hand = players.get(&batter_id).unwrap().bats;
 
-        let pit_scoreboard = self.pitching();
+        let pit_scoreboard = self.pitching(inning);
         let pit_r = pit_scoreboard.r as i8;
         let pit_team = teams.get(&pit_scoreboard.id).unwrap();
         let cur_pitching = players.get(&pit_scoreboard.pitcher).unwrap().pos;
@@ -288,11 +285,15 @@ impl Game {
 
         let run_diff = pit_r - bat_r;
 
+        let mut used_pitchers = pit_scoreboard.pitcher_record.iter().map(|o| o.pitcher).collect::<Vec<_>>();
+        used_pitchers.push(pit_scoreboard.pitcher);
+        let available = pit_team.players.iter().filter(|o| !used_pitchers.contains(*o)).collect::<Vec<_>>();
+
         let sub = if run_diff > 0 && run_diff <= 3 {
-            if inning == 8 && cur_pitching != Position::Setup {
-                pit_team.players.iter().filter(|o| players.get(o).unwrap().pos == Position::Setup).choose(rng)
-            } else if inning >= 9 && cur_pitching != Position::Closer {
-                pit_team.players.iter().filter(|o| players.get(o).unwrap().pos == Position::Closer).choose(rng)
+            if inning.number == 8 && cur_pitching != Position::Setup {
+                available.iter().filter(|o| players.get(o).unwrap().pos == Position::Setup).choose(rng)
+            } else if inning.number >= 9 && cur_pitching != Position::Closer {
+                available.iter().filter(|o| players.get(o).unwrap().pos == Position::Closer).choose(rng)
             } else {
                 None
             }
@@ -301,28 +302,27 @@ impl Game {
         };
 
         let sub = if sub.is_none() && pit_scoreboard.pitches > pitch_max {
-            if inning < 7 {
-                pit_team.players.iter().filter(|o| players.get(o).unwrap().pos == Position::LongRelief).choose(rng)
+            if inning.number < 7 {
+                available.iter().filter(|o| players.get(o).unwrap().pos == Position::LongRelief).choose(rng)
             } else {
-                pit_team.players.iter().filter(|o| players.get(o).unwrap().pos == Position::ShortRelief).choose(rng)
+                available.iter().filter(|o| players.get(o).unwrap().pos == Position::ShortRelief).choose(rng)
             }
         } else {
             sub
         };
 
-        if let Some(&new_pitcher) = sub {
+        if let Some(&&new_pitcher) = sub {
             pit_scoreboard.record_pitcher(bat_r);
 
             pit_scoreboard.pitcher = new_pitcher;
             pit_scoreboard.pitches = 0;
             pit_scoreboard.pitcher_outs = 0;
             pit_scoreboard.pitcher_run_diff_in = run_diff;
-            let pitcher = players.get_mut(&new_pitcher).unwrap();
-            pitcher.record_stat(Stat::G);
+            Self::record_stat(boxscore, new_pitcher, Stat::G, None);
         }
     }
 
-    fn record_wls(sb: &Scoreboard, players: &mut PlayerMap, oppo_r: i8) {
+    fn record_wls(boxscore: &mut GameLog, sb: &Scoreboard, oppo_r: i8) {
         let last_pitcher = sb.pitcher_record.len() - 1;
         let mut idx = last_pitcher;
         let mut winner = None;
@@ -353,61 +353,76 @@ impl Game {
             }
         }
         if let Some(w) = winner {
-            let winning_pitcher = Self::record_stat(players, w, Stat::Pw);
+            Self::record_stat(boxscore, w, Stat::Pw, None);
             if last_pitcher == 0 {
-                winning_pitcher.record_stat(Stat::Pcg);
+                Self::record_stat(boxscore, w, Stat::Pcg, None);
                 if oppo_r == 0 {
-                    winning_pitcher.record_stat(Stat::Psho);
+                    Self::record_stat(boxscore, w, Stat::Psho, None);
                 }
             }
 
             let last_pr = &sb.pitcher_record[last_pitcher];
-            if ( last_pr.run_diff_in <= 3 || last_pr.outs >= 9 ) && last_pr.pitcher != w {
-                Self::record_stat(players, last_pr.pitcher, Stat::Psv);
+            if (last_pr.run_diff_in <= 3 || last_pr.outs >= 9) && last_pr.pitcher != w {
+                Self::record_stat(boxscore, last_pr.pitcher, Stat::Psv, None);
             }
 
             if last_pitcher > 0 {
                 let mut hold_idx = last_pitcher - 1;
                 while hold_idx > 0 && sb.pitcher_record[hold_idx].pitcher != w && sb.pitcher_record[hold_idx].run_diff_in <= 3 {
-                    Self::record_stat(players, sb.pitcher_record[hold_idx].pitcher, Stat::Phld);
+                    Self::record_stat(boxscore, sb.pitcher_record[hold_idx].pitcher, Stat::Phld, None);
                     hold_idx -= 1;
                 }
             }
-
         }
         if let Some(l) = loser {
-            let losing_pitcher = Self::record_stat(players, l, Stat::Pl);
+            Self::record_stat(boxscore, l, Stat::Pl, None);
             if last_pitcher == 0 {
-                losing_pitcher.record_stat(Stat::Pcg);
+                Self::record_stat(boxscore, l, Stat::Pcg, None);
             }
-
         }
     }
 
+    fn end_of_game(&mut self, players: &mut PlayerMap, boxscore: GameLog) {
+        for event in &boxscore {
+            let player = players.get_mut(&event.player).unwrap();
+            player.record_stat(event.event);
+        }
+
+        self.playbyplay = boxscore;
+    }
+
     pub(crate) fn sim(&mut self, teams: &mut TeamMap, players: &mut PlayerMap, year: u32, rng: &mut ThreadRng) {
-        self.setup_game(players, teams, year, rng);
+        let mut boxscore = GameLog::new();
+        let mut inning = Inning {
+            number: 1,
+            half: InningHalf::Top,
+        };
+        let mut outs = 0;
+        let mut virtual_outs = 0;
 
-        while !self.complete() {
-            if self.inning.half == InningHalf::Middle {
+        self.setup_game(players, teams, &mut boxscore, year, rng);
+
+        while !self.is_complete(&inning) {
+            if inning.half == InningHalf::Middle {
                 self.home.onbase.fill(None);
-                self.outs = 0;
-                self.virtual_outs = 0;
-                self.inning.half = InningHalf::Bottom;
+                outs = 0;
+                virtual_outs = 0;
+                inning.half = InningHalf::Bottom;
                 continue;
             }
-            if self.inning.half == InningHalf::End {
+            if inning.half == InningHalf::End {
                 self.away.onbase.fill(None);
-                self.outs = 0;
-                self.virtual_outs = 0;
-                self.inning.number += 1;
-                self.inning.half = InningHalf::Top;
+                outs = 0;
+                virtual_outs = 0;
+                inning.number += 1;
+                inning.half = InningHalf::Top;
                 continue;
             }
-            let earned = self.virtual_outs < 3;
+            let earned = virtual_outs < 3;
 
-            self.sub_pitcher(teams, players, rng);
+            self.sub_pitcher(&inning, teams, players, &mut boxscore, rng);
 
-            let (bat_scoreboard, pit_scoreboard) = self.batting_pitching();
+            let (bat_scoreboard, pit_scoreboard) = self.batting_pitching(&inning);
 
             let pitcher_id = pit_scoreboard.pitcher;
             let pitcher = players.get(&pitcher_id).unwrap();
@@ -427,18 +442,38 @@ impl Game {
             let pitch_avg = (batter.patience + pitcher.control) / 2.0;
             let mut pitches = gen_gamma(rng, pitch_avg, 1.0).round().max(1.0) as u32;
 
-            let outs = match result {
-                Expect::Single => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1),
-                Expect::Double => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 2),
-                Expect::Triple => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 3),
-                Expect::HomeRun => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 4),
+            let mut box_target = None;
+
+            let result_outs = match result {
+                Expect::Single => {
+                    box_target = Some(target);
+                    bat_scoreboard.h += 1;
+                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1)
+                }
+                Expect::Double => {
+                    box_target = Some(target);
+                    bat_scoreboard.h += 1;
+                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 2)
+                }
+                Expect::Triple => {
+                    box_target = Some(target);
+                    bat_scoreboard.h += 1;
+                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 3)
+                }
+                Expect::HomeRun => {
+                    box_target = Some(target);
+                    bat_scoreboard.h += 1;
+                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 4)
+                }
                 Expect::Walk => {
                     pitches = pitches.max(4);
                     bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1)
                 }
                 Expect::HitByPitch => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1),
                 Expect::Error => {
-                    Self::record_stat(players, fielder_id, Stat::Fe);
+                    box_target = Some(target);
+                    Self::record_stat(&mut boxscore, fielder_id, Stat::Fe, None);
+                    bat_scoreboard.e += 1;
                     bat_scoreboard.advance_onbase(batter_id, pitcher_id, false, 1)
                 }
                 Expect::Strikeout => {
@@ -446,38 +481,32 @@ impl Game {
                     1
                 }
                 Expect::Out => {
-                    Self::record_stat(players, fielder_id, Stat::Fpo);
+                    box_target = Some(target);
+                    Self::record_stat(&mut boxscore, fielder_id, Stat::Fpo, None);
                     1
                 }
             };
 
-            match result {
-                Expect::Single |
-                Expect::Double |
-                Expect::Triple |
-                Expect::HomeRun => bat_scoreboard.h += 1,
-                Expect::Error => bat_scoreboard.e += 1,
-                _ => {}
-            };
-
-            let batting_stat = result.to_batting_stat();
-            let pitching_stat = result.to_pitching_stat();
-
-            let batter = Self::record_stat(players, batter_id, batting_stat);
+            if let Some(batting_stat) = result.to_batting_stat() {
+                Self::record_stat(&mut boxscore, batter_id, batting_stat, box_target);
+            }
 
             if result != Expect::Error {
                 for _ in &bat_scoreboard.runs_in {
-                    batter.record_stat(Stat::Brbi);
+                    Self::record_stat(&mut boxscore, batter_id, Stat::Brbi, None);
                 }
             }
 
-            Self::record_stat(players, pitcher_id, pitching_stat);
+            if let Some(pitching_stat) = result.to_pitching_stat() {
+                Self::record_stat(&mut boxscore, pitcher_id, pitching_stat, None);
+            }
 
             for runner in &bat_scoreboard.runs_in {
-                Self::record_stat(players, runner.runner, Stat::Br);
-                let pitcher = Self::record_stat(players, runner.pitcher, Stat::Pr);
+                Self::record_stat(&mut boxscore, runner.runner, Stat::Br, None);
                 if runner.earned {
-                    pitcher.record_stat(Stat::Per);
+                    Self::record_stat(&mut boxscore, runner.pitcher, Stat::Per, None);
+                } else {
+                    Self::record_stat(&mut boxscore, runner.pitcher, Stat::Pr, None);
                 }
             }
 
@@ -485,39 +514,40 @@ impl Game {
 
             bat_scoreboard.ab = (bat_scoreboard.ab + 1) % 9;
 
-            let mut pit_scoreboard = self.pitching();
+            let mut pit_scoreboard = self.pitching(&inning);
             pit_scoreboard.pitches += pitches;
-            pit_scoreboard.pitcher_outs += outs;
+            pit_scoreboard.pitcher_outs += result_outs;
 
-            self.outs += outs;
-            self.virtual_outs += outs;
+            outs += result_outs;
+            virtual_outs += result_outs;
             if result == Expect::Error {
-                self.virtual_outs += 1;
+                virtual_outs += 1;
             }
-            if self.outs >= 3 {
-                if self.inning.half == InningHalf::Top {
-                    self.inning.half = InningHalf::Middle;
-                } else if self.inning.half == InningHalf::Bottom {
-                    self.inning.half = InningHalf::End;
+            if outs >= 3 {
+                if inning.half == InningHalf::Top {
+                    inning.half = InningHalf::Middle;
+                } else if inning.half == InningHalf::Bottom {
+                    inning.half = InningHalf::End;
                 }
             }
         }
 
-        let bat_r = self.batting().r as i8;
+        let bat_r = self.batting(&inning).r as i8;
 
-        let pitching = self.pitching();
+        let pitching = self.pitching(&inning);
         pitching.record_pitcher(bat_r);
-        Self::record_wls(pitching, players, bat_r);
+        Self::record_wls(&mut boxscore, pitching, bat_r);
 
         let pit_r = pitching.r as i8;
 
-        let batting = self.batting();
+        let batting = self.batting(&inning);
         batting.record_pitcher(pit_r);
-        Self::record_wls(batting, players, pit_r);
-
+        Self::record_wls(&mut boxscore, batting, pit_r);
 
         teams.get_mut(&self.home.id).unwrap().results(self.home.r, self.away.r);
         teams.get_mut(&self.away.id).unwrap().results(self.away.r, self.home.r);
+
+        self.end_of_game(players, boxscore);
     }
 }
 
