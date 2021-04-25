@@ -7,9 +7,9 @@ use rand::rngs::ThreadRng;
 
 use crate::data::Data;
 use crate::league::{end_of_season, League};
-use crate::player::{generate_players, Player, PlayerId, PlayerMap, Stat};
-use crate::player;
+use crate::player::{collect_all_active, generate_players, PlayerId, PlayerMap};
 use crate::schedule::{Game, GameLogEvent, Scoreboard};
+use crate::stat::{Stat, Stats, HistoricalStats};
 use crate::team::{Team, TeamId, TeamMap};
 
 #[derive(Copy, Clone, PartialEq)]
@@ -22,6 +22,7 @@ enum Mode {
     Player(usize, PlayerId, Option<TeamId>),
     BatLeaders(usize, Stat, bool),
     PitLeaders(usize, Stat, bool),
+    LeagueRecords(usize),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -61,7 +62,7 @@ impl Imp019App {
         let mut players = HashMap::new();
         generate_players(&mut players, 3600, year, &data, &mut rng);
 
-        let mut available = player::collect_all_active(&players);
+        let mut available = collect_all_active(&players);
 
         let locs = data.get_locs(&mut HashSet::new(), &mut rng, 60);
         let nicks = data.get_nicks(&mut HashSet::new(), &mut rng, 60);
@@ -116,16 +117,6 @@ fn as_league(value: Option<u32>) -> String {
     }
 }
 
-fn select_bat_stat(league: usize, new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
-    let flip = if new_stat == cur_stat { !reverse } else { default };
-    Mode::BatLeaders(league, new_stat, flip)
-}
-
-fn select_pit_stat(league: usize, new_stat: Stat, cur_stat: Stat, reverse: bool, default: bool) -> Mode {
-    let flip = if new_stat == cur_stat { !reverse } else { default };
-    Mode::PitLeaders(league, new_stat, flip)
-}
-
 fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) -> bool {
     let home_team = teams.get(&game.home.id).unwrap();
     let away_team = teams.get(&game.away.id).unwrap();
@@ -173,63 +164,72 @@ fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) -> bool {
 
 fn display_bo(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
     ui.label(format!("{} {} Batters", team.abbr, team.nickname));
-    ui.monospace("AB");
-    ui.monospace("R");
-    ui.monospace("H");
-    ui.monospace("RBI");
-    ui.monospace("BB");
-    ui.monospace("SO");
-    ui.monospace("AVG");
+
+    const HEADERS: [Stat; 6] = [
+        Stat::Bab,
+        Stat::Br,
+        Stat::Bh,
+        Stat::Brbi,
+        Stat::Bbb,
+        Stat::Bso,
+    ];
+
+    for header in HEADERS.iter() {
+        ui.monospace(header.to_string());
+    }
+    ui.monospace(Stat::Bavg.to_string());
     ui.monospace("OPS");
     ui.end_row();
 
     for (idx, def) in scoreboard.bo.iter().enumerate() {
         let batter = players.get(&def.player).unwrap();
 
-        let stats = Player::compile_stats(stat_map.get(&def.player).unwrap_or(&Vec::new()));
+        let stats = Stats::compile_stats(stat_map.get(&def.player).unwrap_or(&Vec::new()));
         let full_stats = batter.get_stats();
 
-        ui.label(format!("{}. {} {}", idx + 1, batter.fname(), def.pos.to_str()));
-        ui.monospace(format!("{}", stats.b_ab));
-        ui.monospace(format!("{}", stats.b_r));
-        ui.monospace(format!("{}", stats.b_h));
-        ui.monospace(format!("{}", stats.b_rbi));
-        ui.monospace(format!("{}", stats.b_bb));
-        ui.monospace(format!("{}", stats.b_so));
-        ui.monospace(format!("{}.{:03}", full_stats.b_avg / 1000, full_stats.b_avg % 1000));
+        ui.label(format!("{}. {} {}", idx + 1, batter.fname(), def.pos));
+
+        for header in HEADERS.iter() {
+            ui.monospace(header.value(stats.get_stat(*header)).to_string());
+        }
+        ui.monospace(Stat::Bavg.value(full_stats.get_stat(Stat::Bavg)).to_string());
         let ops = full_stats.b_obp + full_stats.b_slg;
-        ui.monospace(format!("{}.{:03}", ops / 1000, ops % 1000));
+        ui.monospace(Stat::Bobp.value(ops));
         ui.end_row();
     }
 }
 
 fn display_pitching(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
     ui.label(format!("{} {} Pitchers", team.abbr, team.nickname));
-    ui.monospace("IP");
-    ui.monospace("H");
-    ui.monospace("R");
-    ui.monospace("ER");
-    ui.monospace("BB");
-    ui.monospace("SO");
-    ui.monospace("HR");
-    ui.monospace("ERA");
+
+    const HEADERS: [Stat; 7] = [
+        Stat::Po,
+        Stat::Ph,
+        Stat::Pr,
+        Stat::Per,
+        Stat::Pbb,
+        Stat::Pso,
+        Stat::Phr,
+    ];
+
+    for header in HEADERS.iter() {
+        ui.monospace(header.to_string());
+    }
+    ui.monospace(Stat::Pera.to_string());
     ui.end_row();
 
     for rec in scoreboard.pitcher_record.iter() {
         let pitcher = players.get(&rec.pitcher).unwrap();
 
-        let stats = Player::compile_stats(stat_map.get(&rec.pitcher).unwrap_or(&Vec::new()));
+        let stats = Stats::compile_stats(stat_map.get(&rec.pitcher).unwrap_or(&Vec::new()));
         let full_stats = pitcher.get_stats();
 
         ui.label(pitcher.fname());
-        ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
-        ui.monospace(format!("{}", stats.p_h));
-        ui.monospace(format!("{}", stats.p_r));
-        ui.monospace(format!("{}", stats.p_er));
-        ui.monospace(format!("{}", stats.p_bb));
-        ui.monospace(format!("{}", stats.p_so));
-        ui.monospace(format!("{}", stats.p_hr));
-        ui.monospace(format!("{}.{:03}", full_stats.p_era / 1000, full_stats.p_era % 1000));
+        for header in HEADERS.iter() {
+            ui.monospace(header.value(stats.get_stat(*header)).to_string());
+        }
+
+        ui.monospace(Stat::Pera.value(full_stats.p_era));
         ui.end_row();
     }
 }
@@ -262,6 +262,171 @@ fn for_each_event<T>(game: &Game, mut action: T) where T: FnMut(usize, bool, &Ga
         }
     }
 }
+
+fn display_team_stats(ui: &mut Ui, is_batter: bool, headers: &[Stat], team_players: &[PlayerId], players: &PlayerMap) -> Option<PlayerId> {
+    ui.label("Name");
+    ui.label("Pos");
+
+
+    for header in headers {
+        ui.label(header.to_string());
+    }
+    ui.end_row();
+
+
+    let mut ret = None;
+    for player_id in team_players {
+        let player = players.get(player_id).unwrap();
+        if player.pos.is_pitcher() == is_batter {
+            continue;
+        }
+        let stats = player.get_stats();
+
+        if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
+            ret = Some(*player_id);
+        }
+        ui.label(player.pos.to_string());
+
+        for header in headers {
+            ui.label(header.value(stats.get_stat(*header)));
+        }
+        ui.end_row();
+    }
+
+    ret
+}
+
+fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[HistoricalStats], teams: &TeamMap ) {
+    ui.label("Year");
+    ui.label("League");
+    ui.label("Team");
+    for header in headers {
+        ui.label(header.to_string());
+    }
+    ui.end_row();
+
+    for history in historical {
+        let stats = history.get_stats();
+        let team = teams.get(&history.team).unwrap();
+
+        ui.label(format!("{}", history.year));
+        ui.label(format!("{}", history.league));
+        ui.label(&team.abbr);
+        for header in headers {
+            ui.label(header.value(stats.get_stat(*header)));
+        }
+        ui.end_row();
+    }
+}
+
+fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &League, teams: &TeamMap, players: &PlayerMap, mut mode: Mode) -> Mode {
+
+    let (disp_league,result, reverse) = match mode {
+        Mode::BatLeaders(disp_league,result,reverse) => (disp_league,result,reverse),
+        Mode::PitLeaders(disp_league,result,reverse) => (disp_league,result,reverse),
+        _ => panic!(),
+    };
+
+    ui.label("#");
+    ui.label("Name");
+    ui.label("Team");
+    ui.label("Pos");
+
+    for header in headers {
+        if ui.button(header.to_string()).clicked() {
+            let flip = if *header == result { !reverse } else { !header.is_reverse_sort() };
+            mode = match mode {
+                Mode::BatLeaders(disp_league,_,_) => Mode::BatLeaders(disp_league,*header,flip),
+                Mode::PitLeaders(disp_league,_,_) => Mode::BatLeaders(disp_league,*header,flip),
+                _ => panic!(),
+            }
+        }
+    }
+
+    ui.end_row();
+
+    let mut all_players = Vec::new();
+
+    for team_id in &league.teams {
+        let team = &teams.get(team_id).unwrap();
+        for player_id in &team.players {
+            let player = players.get(player_id).unwrap();
+            if player.pos.is_pitcher() != is_batter {
+                all_players.push((&team.abbr, player, player.get_stats(), player_id));
+            }
+        }
+    }
+
+    all_players.sort_by_key(|o| o.2.get_stat(result));
+    if reverse {
+        all_players.reverse()
+    };
+
+    for (rank, ap) in all_players[0..30].iter().enumerate() {
+        let player = ap.1;
+
+        ui.label(format!("{}", rank + 1));
+        if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
+            mode = Mode::Player(disp_league, *ap.3, None);
+        }
+        ui.label(ap.0);
+        ui.label(ap.1.pos.to_string());
+
+        let stats = &ap.2;
+
+        for header in headers {
+            ui.label(header.value(stats.get_stat(*header)));
+        }
+        ui.end_row();
+    }
+    mode
+}
+
+const BATTING_HEADERS: [Stat; 16] = [
+    Stat::G,
+    Stat::Gs,
+    Stat::Bpa,
+    Stat::Bab,
+    Stat::Bh,
+    Stat::B2b,
+    Stat::B3b,
+    Stat::Bhr,
+    Stat::Bbb,
+    Stat::Bhbp,
+    Stat::Bso,
+    Stat::Br,
+    Stat::Brbi,
+    Stat::Bavg,
+    Stat::Bobp,
+    Stat::Bslg,
+];
+
+const PITCHING_HEADERS: [Stat; 23] = [
+    Stat::G,
+    Stat::Pw,
+    Stat::Pl,
+    Stat::Psv,
+    Stat::Phld,
+    Stat::Pcg,
+    Stat::Psho,
+    Stat::Po,
+    Stat::Pbf,
+    Stat::Ph,
+    Stat::P2b,
+    Stat::P3b,
+    Stat::Phr,
+    Stat::Pbb,
+    Stat::Phbp,
+    Stat::Pso,
+    Stat::Pr,
+    Stat::Per,
+    Stat::Pera,
+    Stat::Pwhip,
+    Stat::Pavg,
+    Stat::Pobp,
+    Stat::Pslg,
+];
+
 
 
 impl epi::App for Imp019App {
@@ -303,20 +468,23 @@ impl epi::App for Imp019App {
 
         egui::SidePanel::left("side_panel", 200.0).show(ctx, |ui| {
             ui.heading("Leagues");
-            for cnt in 0..self.leagues.len() {
+            for league_idx in 0..self.leagues.len() {
                 ui.horizontal(|ui| {
-                    ui.label(format!("League {}", cnt + 1));
+                    ui.label(format!("League {}", league_idx + 1));
                     if ui.button("Sche").clicked() {
-                        self.disp_mode = Mode::Schedule(cnt);
+                        self.disp_mode = Mode::Schedule(league_idx);
                     }
                     if ui.button("Stan").clicked() {
-                        self.disp_mode = Mode::Standings(cnt);
+                        self.disp_mode = Mode::Standings(league_idx);
                     }
                     if ui.button("Bat").clicked() {
-                        self.disp_mode = Mode::BatLeaders(cnt, Stat::Bhr, true);
+                        self.disp_mode = Mode::BatLeaders(league_idx, Stat::Bhr, true);
                     }
                     if ui.button("Pit").clicked() {
-                        self.disp_mode = Mode::PitLeaders(cnt, Stat::Pw, true);
+                        self.disp_mode = Mode::PitLeaders(league_idx, Stat::Pw, true);
+                    }
+                    if ui.button("Rec").clicked() {
+                        self.disp_mode = Mode::LeagueRecords(league_idx);
                     }
                 });
             }
@@ -546,7 +714,7 @@ impl epi::App for Imp019App {
 
 
                             let target_str = if let Some(target) = event.target {
-                                format!(" to {}", target.to_str())
+                                format!(" to {}", target)
                             } else {
                                 "".to_string()
                             };
@@ -651,123 +819,16 @@ impl epi::App for Imp019App {
                         if !team.players.is_empty() {
                             ui.vertical(|ui| {
                                 ui.heading("Batting");
-                                egui::Grid::new("batting").striped(true).show(ui, |ui| {
-                                    ui.label("Name");
-                                    ui.label("Pos");
-                                    ui.label("G");
-                                    ui.label("GS");
-                                    ui.label("PA");
-                                    ui.label("AB");
-                                    ui.label("H");
-                                    ui.label("2B");
-                                    ui.label("3B");
-                                    ui.label("HR");
-                                    ui.label("BB");
-                                    ui.label("HBP");
-                                    ui.label("SO");
-                                    ui.label("R");
-                                    ui.label("RBI");
-                                    ui.label("AVG");
-                                    ui.label("OBP");
-                                    ui.label("SLG");
-                                    ui.end_row();
 
-
-                                    for player_id in &team.players {
-                                        let player = self.players.get(player_id).unwrap();
-                                        if player.pos.is_pitcher() {
-                                            continue;
-                                        }
-                                        let stats = player.get_stats();
-
-                                        if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(*disp_league, *player_id, Some(*id));
-                                        }
-                                        ui.label(player.pos.to_str());
-                                        ui.label(format!("{}", stats.g));
-                                        ui.label(format!("{}", stats.gs));
-                                        ui.label(format!("{}", stats.b_pa));
-                                        ui.label(format!("{}", stats.b_ab));
-                                        ui.label(format!("{}", stats.b_h));
-                                        ui.label(format!("{}", stats.b_2b));
-                                        ui.label(format!("{}", stats.b_3b));
-                                        ui.label(format!("{}", stats.b_hr));
-                                        ui.label(format!("{}", stats.b_bb));
-                                        ui.label(format!("{}", stats.b_hbp));
-                                        ui.label(format!("{}", stats.b_so));
-                                        ui.label(format!("{}", stats.b_r));
-                                        ui.label(format!("{}", stats.b_rbi));
-                                        ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
-                                        ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
-                                        ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
-                                        ui.end_row();
+                                egui::Grid::new("batting").striped(true).show(ui, |mut ui| {
+                                    if let Some(player_id) = display_team_stats(&mut ui, true, &BATTING_HEADERS, &team.players, &self.players) {
+                                        mode = Mode::Player(*disp_league, player_id, Some(*id));
                                     }
                                 });
                                 ui.heading("Pitching");
-                                egui::Grid::new("pitching").striped(true).show(ui, |ui| {
-                                    ui.label("Name");
-                                    ui.label("Pos");
-                                    ui.label("G");
-                                    ui.label("W");
-                                    ui.label("L");
-                                    ui.label("SV");
-                                    ui.label("HLD");
-                                    ui.label("CG");
-                                    ui.label("SHO");
-                                    ui.label("IP");
-                                    ui.label("BF");
-                                    ui.label("H");
-                                    ui.label("2B");
-                                    ui.label("3B");
-                                    ui.label("HR");
-                                    ui.label("BB");
-                                    ui.label("HBP");
-                                    ui.label("SO");
-                                    ui.label("R");
-                                    ui.label("ER");
-                                    ui.label("ERA");
-                                    ui.label("WHIP");
-                                    ui.label("AVG");
-                                    ui.label("OBP");
-                                    ui.label("SLG");
-                                    ui.end_row();
-
-
-                                    for player_id in &team.players {
-                                        let player = self.players.get(player_id).unwrap();
-                                        if !player.pos.is_pitcher() {
-                                            continue;
-                                        }
-                                        let stats = player.get_stats();
-
-                                        if ui.add(Button::new(&player.fullname()).frame(false)).clicked() {
-                                            mode = Mode::Player(*disp_league, *player_id, Some(*id));
-                                        }
-                                        ui.label(player.pos.to_str());
-                                        ui.label(format!("{}", stats.g));
-                                        ui.label(format!("{}", stats.p_w));
-                                        ui.label(format!("{}", stats.p_l));
-                                        ui.label(format!("{}", stats.p_sv));
-                                        ui.label(format!("{}", stats.p_hld));
-                                        ui.label(format!("{}", stats.p_cg));
-                                        ui.label(format!("{}", stats.p_sho));
-                                        ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
-                                        ui.label(format!("{}", stats.p_bf));
-                                        ui.label(format!("{}", stats.p_h));
-                                        ui.label(format!("{}", stats.p_2b));
-                                        ui.label(format!("{}", stats.p_3b));
-                                        ui.label(format!("{}", stats.p_hr));
-                                        ui.label(format!("{}", stats.p_bb));
-                                        ui.label(format!("{}", stats.p_hbp));
-                                        ui.label(format!("{}", stats.p_so));
-                                        ui.label(format!("{}", stats.p_r));
-                                        ui.label(format!("{}", stats.p_er));
-                                        ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
-                                        ui.label(format!("{}.{:03}", stats.p_whip / 1000, stats.p_whip % 1000));
-                                        ui.label(format!("{}.{:03}", stats.p_avg / 1000, stats.p_avg % 1000));
-                                        ui.label(format!("{}.{:03}", stats.p_obp / 1000, stats.p_obp % 1000));
-                                        ui.label(format!("{}.{:03}", stats.p_slg / 1000, stats.p_slg % 1000));
-                                        ui.end_row();
+                                egui::Grid::new("pitching").striped(true).show(ui, |mut ui| {
+                                    if let Some(player_id) = display_team_stats(&mut ui, false, &PITCHING_HEADERS, &team.players, &self.players) {
+                                        mode = Mode::Player(*disp_league, player_id, Some(*id));
                                     }
                                 });
                             });
@@ -793,123 +854,19 @@ impl epi::App for Imp019App {
                     }
                     ui.label(format!("Name: {}", player.fullname()));
                     ui.label(format!("Age: {} Born: {}", player.age(self.year), player.born));
-                    ui.label(format!("Pos: {}", player.pos.to_str()));
-                    ui.label(format!("Bats: {}", player.bats.to_str()));
-                    ui.label(format!("Throws: {}", player.throws.to_str()));
+                    ui.label(format!("Pos: {}", player.pos));
+                    ui.label(format!("Bats: {}", player.bats));
+                    ui.label(format!("Throws: {}", player.throws));
 
                     if !player.pos.is_pitcher() {
                         ui.heading("Batting History");
-                        egui::Grid::new("bhistory").striped(true).show(ui, |ui| {
-                            ui.label("Year");
-                            ui.label("League");
-                            ui.label("Team");
-                            ui.label("G");
-                            ui.label("GS");
-                            ui.label("PA");
-                            ui.label("AB");
-                            ui.label("H");
-                            ui.label("2B");
-                            ui.label("3B");
-                            ui.label("HR");
-                            ui.label("BB");
-                            ui.label("HBP");
-                            ui.label("SO");
-                            ui.label("R");
-                            ui.label("RBI");
-                            ui.label("AVG");
-                            ui.label("OBP");
-                            ui.label("SLG");
-                            ui.end_row();
-
-                            for history in &player.historical {
-                                let stats = history.get_stats();
-                                let team = self.teams.get(&history.team).unwrap();
-
-                                ui.label(format!("{}", history.year));
-                                ui.label(format!("{}", history.league));
-                                ui.label(&team.abbr);
-                                ui.label(format!("{}", stats.g));
-                                ui.label(format!("{}", stats.gs));
-                                ui.label(format!("{}", stats.b_pa));
-                                ui.label(format!("{}", stats.b_ab));
-                                ui.label(format!("{}", stats.b_h));
-                                ui.label(format!("{}", stats.b_2b));
-                                ui.label(format!("{}", stats.b_3b));
-                                ui.label(format!("{}", stats.b_hr));
-                                ui.label(format!("{}", stats.b_bb));
-                                ui.label(format!("{}", stats.b_hbp));
-                                ui.label(format!("{}", stats.b_so));
-                                ui.label(format!("{}", stats.b_r));
-                                ui.label(format!("{}", stats.b_rbi));
-                                ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
-                                ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
-                                ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
-                                ui.end_row();
-                            }
+                        egui::Grid::new("bhistory").striped(true).show(ui, |mut ui| {
+                            display_historical_stats( &mut ui, &BATTING_HEADERS, &player.historical, &self.teams );
                         });
                     } else {
                         ui.heading("Pitching History");
-                        egui::Grid::new("phistory").striped(true).show(ui, |ui| {
-                            ui.label("Year");
-                            ui.label("League");
-                            ui.label("Team");
-                            ui.label("G");
-                            ui.label("W");
-                            ui.label("L");
-                            ui.label("SV");
-                            ui.label("HLD");
-                            ui.label("CG");
-                            ui.label("SHo");
-                            ui.label("IP");
-                            ui.label("BF");
-                            ui.label("H");
-                            ui.label("2B");
-                            ui.label("3B");
-                            ui.label("HR");
-                            ui.label("BB");
-                            ui.label("HBP");
-                            ui.label("SO");
-                            ui.label("R");
-                            ui.label("ER");
-                            ui.label("ERA");
-                            ui.label("WHIP");
-                            ui.label("AVG");
-                            ui.label("OBP");
-                            ui.label("SLG");
-                            ui.end_row();
-
-                            for history in &player.historical {
-                                let stats = history.get_stats();
-                                let team = self.teams.get(&history.team).unwrap();
-
-                                ui.label(format!("{}", history.year));
-                                ui.label(format!("{}", history.league));
-                                ui.label(&team.abbr);
-                                ui.label(format!("{}", stats.g));
-                                ui.label(format!("{}", stats.p_w));
-                                ui.label(format!("{}", stats.p_l));
-                                ui.label(format!("{}", stats.p_sv));
-                                ui.label(format!("{}", stats.p_hld));
-                                ui.label(format!("{}", stats.p_cg));
-                                ui.label(format!("{}", stats.p_sho));
-                                ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
-                                ui.label(format!("{}", stats.p_bf));
-                                ui.label(format!("{}", stats.p_h));
-                                ui.label(format!("{}", stats.p_2b));
-                                ui.label(format!("{}", stats.p_3b));
-                                ui.label(format!("{}", stats.p_hr));
-                                ui.label(format!("{}", stats.p_bb));
-                                ui.label(format!("{}", stats.p_hbp));
-                                ui.label(format!("{}", stats.p_so));
-                                ui.label(format!("{}", stats.p_r));
-                                ui.label(format!("{}", stats.p_er));
-                                ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
-                                ui.label(format!("{}.{:03}", stats.p_whip / 1000, stats.p_whip % 1000));
-                                ui.label(format!("{}.{:03}", stats.p_avg / 1000, stats.p_avg % 1000));
-                                ui.label(format!("{}.{:03}", stats.p_obp / 1000, stats.p_obp % 1000));
-                                ui.label(format!("{}.{:03}", stats.p_slg / 1000, stats.p_slg % 1000));
-                                ui.end_row();
-                            }
+                        egui::Grid::new("phistory").striped(true).show(ui, |mut ui| {
+                            display_historical_stats( &mut ui, &PITCHING_HEADERS, &player.historical, &self.teams );
                         });
                     }
 
@@ -920,106 +877,7 @@ impl epi::App for Imp019App {
                     let mut mode = Mode::BatLeaders(*disp_league, *result, *reverse);
 
                     egui::Grid::new("bleaders").striped(true).show(ui, |ui| {
-                        ui.label("#");
-                        ui.label("Name");
-                        ui.label("Team");
-                        if ui.button("G").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::G, *result, *reverse, true);
-                        }
-                        if ui.button("GS").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Gs, *result, *reverse, true);
-                        }
-                        if ui.button("PA").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bpa, *result, *reverse, true);
-                        }
-                        if ui.button("AB").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bab, *result, *reverse, true);
-                        }
-                        if ui.button("H").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bh, *result, *reverse, true);
-                        }
-                        if ui.button("2B").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::B2b, *result, *reverse, true);
-                        }
-                        if ui.button("3B").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::B3b, *result, *reverse, true);
-                        }
-                        if ui.button("HR").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bhr, *result, *reverse, true);
-                        }
-                        if ui.button("BB").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bbb, *result, *reverse, true);
-                        }
-                        if ui.button("HBP").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bhbp, *result, *reverse, true);
-                        }
-                        if ui.button("SO").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bso, *result, *reverse, true);
-                        }
-                        if ui.button("R").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Br, *result, *reverse, true);
-                        }
-                        if ui.button("RBI").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Brbi, *result, *reverse, true);
-                        }
-                        if ui.button("AVG").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bavg, *result, *reverse, true);
-                        }
-                        if ui.button("OBP").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bobp, *result, *reverse, true);
-                        }
-                        if ui.button("SLG").clicked() {
-                            mode = select_bat_stat(*disp_league, Stat::Bslg, *result, *reverse, true);
-                        }
-                        ui.end_row();
-
-                        let mut all_players = Vec::new();
-
-                        for team_id in league.teams.iter() {
-                            let team = &self.teams.get(team_id).unwrap();
-                            for player_id in team.players.iter() {
-                                let player = self.players.get(player_id).unwrap();
-                                if !player.pos.is_pitcher() {
-                                    all_players.push((&team.abbr, player, player.get_stats(), player_id));
-                                }
-                            }
-                        }
-
-                        all_players.sort_by_key(|o| o.2.get_stat(*result));
-                        if *reverse {
-                            all_players.reverse()
-                        };
-
-                        for (rank, ap) in all_players[0..30].iter().enumerate() {
-                            let player = ap.1;
-
-                            ui.label(format!("{}", rank + 1));
-                            if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
-                                mode = Mode::Player(*disp_league, *ap.3, None);
-                            }
-                            ui.label(ap.0);
-
-
-                            let stats = &ap.2;
-
-                            ui.label(format!("{}", stats.g));
-                            ui.label(format!("{}", stats.gs));
-                            ui.label(format!("{}", stats.b_pa));
-                            ui.label(format!("{}", stats.b_ab));
-                            ui.label(format!("{}", stats.b_h));
-                            ui.label(format!("{}", stats.b_2b));
-                            ui.label(format!("{}", stats.b_3b));
-                            ui.label(format!("{}", stats.b_hr));
-                            ui.label(format!("{}", stats.b_bb));
-                            ui.label(format!("{}", stats.b_hbp));
-                            ui.label(format!("{}", stats.b_so));
-                            ui.label(format!("{}", stats.b_r));
-                            ui.label(format!("{}", stats.b_rbi));
-                            ui.label(format!("{}.{:03}", stats.b_avg / 1000, stats.b_avg % 1000));
-                            ui.label(format!("{}.{:03}", stats.b_obp / 1000, stats.b_obp % 1000));
-                            ui.label(format!("{}.{:03}", stats.b_slg / 1000, stats.b_slg % 1000));
-                            ui.end_row();
-                        }
+                        mode = display_leaders(ui, true, &BATTING_HEADERS, league, &self.teams, &self.players, mode);
                     });
 
                     mode
@@ -1029,139 +887,24 @@ impl epi::App for Imp019App {
                     let mut mode = Mode::PitLeaders(*disp_league, *result, *reverse);
 
                     egui::Grid::new("pleaders").striped(true).show(ui, |ui| {
-                        ui.label("#");
-                        ui.label("Name");
-                        ui.label("Team");
-                        ui.label("Pos");
-                        if ui.button("G").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::G, *result, *reverse, true);
-                        }
-                        if ui.button("W").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pw, *result, *reverse, true);
-                        }
-                        if ui.button("L").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pl, *result, *reverse, true);
-                        }
-                        if ui.button("SV").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Psv, *result, *reverse, true);
-                        }
-                        if ui.button("HLD").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Phld, *result, *reverse, true);
-                        }
-                        if ui.button("CG").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pcg, *result, *reverse, true);
-                        }
-                        if ui.button("SHO").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Psho, *result, *reverse, true);
-                        }
-                        if ui.button("IP").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Po, *result, *reverse, true);
-                        }
-                        if ui.button("BF").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pbf, *result, *reverse, true);
-                        }
-                        if ui.button("H").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Ph, *result, *reverse, true);
-                        }
-                        if ui.button("2B").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::P2b, *result, *reverse, true);
-                        }
-                        if ui.button("3B").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::P3b, *result, *reverse, true);
-                        }
-                        if ui.button("HR").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Phr, *result, *reverse, true);
-                        }
-                        if ui.button("BB").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pbb, *result, *reverse, true);
-                        }
-                        if ui.button("HBP").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Phbp, *result, *reverse, true);
-                        }
-                        if ui.button("SO").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pso, *result, *reverse, true);
-                        }
-                        if ui.button("R").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pr, *result, *reverse, true);
-                        }
-                        if ui.button("ER").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Per, *result, *reverse, true);
-                        }
-                        if ui.button("ERA").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pera, *result, *reverse, false);
-                        }
-                        if ui.button("WHIP").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pwhip, *result, *reverse, false);
-                        }
-                        if ui.button("AVG").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pavg, *result, *reverse, false);
-                        }
-                        if ui.button("OBP").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pobp, *result, *reverse, false);
-                        }
-                        if ui.button("SLG").clicked() {
-                            mode = select_pit_stat(*disp_league, Stat::Pslg, *result, *reverse, false);
-                        }
-                        ui.end_row();
-
-                        let mut all_players = Vec::new();
-
-                        for team_id in league.teams.iter() {
-                            let team = &self.teams.get(team_id).unwrap();
-                            for player_id in team.players.iter() {
-                                let player = self.players.get(player_id).unwrap();
-                                if player.pos.is_pitcher() {
-                                    all_players.push((&team.abbr, player, player.get_stats(), player_id));
-                                }
-                            }
-                        }
-
-                        all_players.sort_by_key(|o| o.2.get_stat(*result));
-                        if *reverse {
-                            all_players.reverse()
-                        };
-
-                        for (rank, ap) in all_players[0..30].iter().enumerate() {
-                            let player = ap.1;
-
-                            ui.label(format!("{}", rank + 1));
-                            if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
-                                mode = Mode::Player(*disp_league, *ap.3, None);
-                            }
-                            ui.label(ap.0);
-                            ui.label(player.pos.to_str());
-
-
-                            let stats = &ap.2;
-
-                            ui.label(format!("{}", stats.g));
-                            ui.label(format!("{}", stats.p_w));
-                            ui.label(format!("{}", stats.p_l));
-                            ui.label(format!("{}", stats.p_sv));
-                            ui.label(format!("{}", stats.p_hld));
-                            ui.label(format!("{}", stats.p_cg));
-                            ui.label(format!("{}", stats.p_sho));
-                            ui.label(format!("{}.{}", stats.p_o / 3, stats.p_o % 3));
-                            ui.label(format!("{}", stats.p_bf));
-                            ui.label(format!("{}", stats.p_h));
-                            ui.label(format!("{}", stats.p_2b));
-                            ui.label(format!("{}", stats.p_3b));
-                            ui.label(format!("{}", stats.p_hr));
-                            ui.label(format!("{}", stats.p_bb));
-                            ui.label(format!("{}", stats.p_hbp));
-                            ui.label(format!("{}", stats.p_so));
-                            ui.label(format!("{}", stats.p_r));
-                            ui.label(format!("{}", stats.p_er));
-                            ui.label(format!("{}.{:03}", stats.p_era / 1000, stats.p_era % 1000));
-                            ui.label(format!("{}.{:03}", stats.p_whip / 1000, stats.p_whip % 1000));
-                            ui.label(format!("{}.{:03}", stats.p_avg / 1000, stats.p_avg % 1000));
-                            ui.label(format!("{}.{:03}", stats.p_obp / 1000, stats.p_obp % 1000));
-                            ui.label(format!("{}.{:03}", stats.p_slg / 1000, stats.p_slg % 1000));
-                            ui.end_row();
-                        }
+                        mode = display_leaders(ui, false, &PITCHING_HEADERS, league, &self.teams, &self.players, mode);
                     });
 
                     mode
+                }
+                Mode::LeagueRecords(disp_league) => {
+                    let league = &self.leagues[*disp_league];
+                    for (stat, entry) in &league.records {
+                        if let Some(record) = entry {
+                            ui.horizontal(|ui| {
+                                let team = self.teams.get(&record.team_id).unwrap();
+                                let player = self.players.get(&record.player_id).unwrap();
+                                ui.label(format!("{}: {} ({}) {} ({})", stat, player.fullname(), team.abbr, stat.value(record.record), record.year));
+                            });
+                        }
+                    }
+
+                    Mode::LeagueRecords(*disp_league)
                 }
             }
         });

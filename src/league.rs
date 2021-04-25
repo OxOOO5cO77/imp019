@@ -1,15 +1,27 @@
+use std::collections::HashMap;
+
 use rand::rngs::ThreadRng;
 
 use crate::data::Data;
-use crate::player;
-use crate::player::PlayerMap;
+use crate::player::{PlayerId, PlayerMap, generate_players, collect_all_active};
 use crate::schedule::Schedule;
+use crate::stat::{Stat, Stats};
 use crate::team::{TeamId, TeamMap};
 
-pub struct League {
+#[derive(Default)]
+pub(crate) struct LeagueRecord {
+    pub(crate) player_id: PlayerId,
+    pub(crate) team_id: TeamId,
+    pub(crate) record: u32,
+    pub(crate) year: u32,
+}
+
+#[derive(Default)]
+pub(crate) struct League {
     id: u32,
     pub(crate) teams: Vec<TeamId>,
     pub(crate) schedule: Schedule,
+    pub(crate) records: HashMap<Stat, Option<LeagueRecord>>,
 }
 
 impl League {
@@ -27,6 +39,7 @@ impl League {
             id,
             teams,
             schedule,
+            ..Self::default()
         }
     }
 
@@ -55,17 +68,49 @@ impl League {
     }
 }
 
+const RECORD_STATS: [Stat; 10] = [
+    Stat::Bhr,
+    Stat::Bh,
+    Stat::B2b,
+    Stat::B3b,
+    Stat::Bbb,
+    Stat::Br,
+    Stat::Brbi,
+    Stat::Bavg,
+    Stat::Bobp,
+    Stat::Bslg,
+];
+
+fn check_record(records: &mut HashMap<Stat, Option<LeagueRecord>>, player_stats: &Stats, player_id: PlayerId, team_id: TeamId, year: u32) {
+    for stat in &RECORD_STATS {
+        let record = records.entry(*stat).or_insert(None);
+        let pval = player_stats.get_stat(*stat);
+
+        if let Some(rec) = record {
+            if rec.record >= pval {
+                continue;
+            }
+        }
+        *record = Some(LeagueRecord {
+            record: pval,
+            player_id,
+            team_id,
+            year,
+        });
+    }
+}
+
 pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut TeamMap, players: &mut PlayerMap, count: usize, year: u32, data: &Data, rng: &mut ThreadRng) {
     // record history
-    for (league_idx, league) in leagues.iter().enumerate() {
+    for (league_idx, league) in leagues.iter_mut().enumerate() {
         for (rank, team_id) in league.teams.iter().enumerate() {
             let team = teams.get_mut(&team_id).unwrap();
-            team.record_results(year, league_idx, rank, team.results);
-
             for player_id in &team.players {
-                let player = players.get_mut(player_id).unwrap();
+                let player = players.get_mut(&player_id).unwrap();
+                check_record(&mut league.records, &player.get_stats(), *player_id, *team_id, year);
                 player.record_stat_history(year, league.id, *team_id);
             }
+            team.record_results(year, league_idx, rank, team.results);
         }
     }
 
@@ -106,10 +151,10 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut TeamMap, play
         retired += 1;
     }
 
-    player::generate_players(players, retired, year, &data, rng);
+    generate_players(players, retired, year, &data, rng);
 
     // collect available players
-    let mut available = player::collect_all_active(players);
+    let mut available = collect_all_active(players);
     for team in teams.values_mut() {
         team.players.retain(|o| players.get(o).unwrap().active);
         available.retain(|k, _| !team.players.contains(k));

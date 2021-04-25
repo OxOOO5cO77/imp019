@@ -8,11 +8,12 @@ use eframe::wasm_bindgen::{self, prelude::*};
 pub use app::Imp019App;
 
 mod app;
-mod team;
-mod player;
-mod league;
 mod data;
+mod league;
+mod player;
 mod schedule;
+mod stat;
+mod team;
 mod util;
 
 // ----------------------------------------------------------------------------

@@ -5,9 +5,10 @@ use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::{IteratorRandom, SliceRandom};
 
-use crate::player::{Expect, ExpectMap, Handedness, Player, PlayerId, PlayerMap, Position, Stat};
+use crate::player::{Expect, ExpectMap, Handedness, Player, PlayerId, PlayerMap, Position};
 use crate::team::{TeamId, TeamMap};
 use crate::util::gen_gamma;
+use crate::stat::Stat;
 
 #[derive(Copy, Clone, Default)]
 struct RunnerInfo {
@@ -487,9 +488,7 @@ impl Game {
                 }
             };
 
-            if let Some(batting_stat) = result.to_batting_stat() {
-                Self::record_stat(&mut boxscore, batter_id, batting_stat, box_target);
-            }
+            Self::record_stat(&mut boxscore, batter_id, result.to_batting_stat(), box_target);
 
             if result != Expect::Error {
                 for _ in &bat_scoreboard.runs_in {
@@ -551,7 +550,7 @@ impl Game {
     }
 }
 
-
+#[derive(Default)]
 pub(crate) struct Schedule {
     pub(crate) games: Vec<Game>,
 }
