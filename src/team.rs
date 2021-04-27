@@ -15,6 +15,12 @@ pub(crate) struct Results {
 }
 
 impl Results {
+    pub(crate) fn games(&self) -> u32 {
+        self.win + self.lose
+    }
+}
+
+impl Results {
     pub(crate) fn reset(&mut self) {
         self.win = 0;
         self.lose = 0;

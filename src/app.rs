@@ -6,10 +6,10 @@ use ordinal::Ordinal;
 use rand::rngs::ThreadRng;
 
 use crate::data::Data;
-use crate::league::{end_of_season, League};
+use crate::league::{end_of_season, League, RECORD_STATS};
 use crate::player::{collect_all_active, generate_players, PlayerId, PlayerMap};
 use crate::schedule::{Game, GameLogEvent, Scoreboard};
-use crate::stat::{Stat, Stats, HistoricalStats};
+use crate::stat::{HistoricalStats, Stat, Stats};
 use crate::team::{Team, TeamId, TeamMap};
 
 #[derive(Copy, Clone, PartialEq)]
@@ -296,7 +296,7 @@ fn display_team_stats(ui: &mut Ui, is_batter: bool, headers: &[Stat], team_playe
     ret
 }
 
-fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[HistoricalStats], teams: &TeamMap ) {
+fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[HistoricalStats], teams: &TeamMap) {
     ui.label("Year");
     ui.label("League");
     ui.label("Team");
@@ -320,10 +320,9 @@ fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[Histori
 }
 
 fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &League, teams: &TeamMap, players: &PlayerMap, mut mode: Mode) -> Mode {
-
-    let (disp_league,result, reverse) = match mode {
-        Mode::BatLeaders(disp_league,result,reverse) => (disp_league,result,reverse),
-        Mode::PitLeaders(disp_league,result,reverse) => (disp_league,result,reverse),
+    let (disp_league, result, reverse) = match mode {
+        Mode::BatLeaders(disp_league, result, reverse) => (disp_league, result, reverse),
+        Mode::PitLeaders(disp_league, result, reverse) => (disp_league, result, reverse),
         _ => panic!(),
     };
 
@@ -336,8 +335,8 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
         if ui.button(header.to_string()).clicked() {
             let flip = if *header == result { !reverse } else { !header.is_reverse_sort() };
             mode = match mode {
-                Mode::BatLeaders(disp_league,_,_) => Mode::BatLeaders(disp_league,*header,flip),
-                Mode::PitLeaders(disp_league,_,_) => Mode::BatLeaders(disp_league,*header,flip),
+                Mode::BatLeaders(disp_league, _, _) => Mode::BatLeaders(disp_league, *header, flip),
+                Mode::PitLeaders(disp_league, _, _) => Mode::BatLeaders(disp_league, *header, flip),
                 _ => panic!(),
             }
         }
@@ -349,10 +348,15 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
 
     for team_id in &league.teams {
         let team = &teams.get(team_id).unwrap();
+        let games = team.results.games();
+
         for player_id in &team.players {
             let player = players.get(player_id).unwrap();
             if player.pos.is_pitcher() != is_batter {
-                all_players.push((&team.abbr, player, player.get_stats(), player_id));
+                let stats = player.get_stats();
+                if result.is_qualified(&stats, games) {
+                    all_players.push((&team.abbr, player, stats, player_id));
+                }
             }
         }
     }
@@ -426,7 +430,6 @@ const PITCHING_HEADERS: [Stat; 23] = [
     Stat::Pobp,
     Stat::Pslg,
 ];
-
 
 
 impl epi::App for Imp019App {
@@ -861,12 +864,12 @@ impl epi::App for Imp019App {
                     if !player.pos.is_pitcher() {
                         ui.heading("Batting History");
                         egui::Grid::new("bhistory").striped(true).show(ui, |mut ui| {
-                            display_historical_stats( &mut ui, &BATTING_HEADERS, &player.historical, &self.teams );
+                            display_historical_stats(&mut ui, &BATTING_HEADERS, &player.historical, &self.teams);
                         });
                     } else {
                         ui.heading("Pitching History");
                         egui::Grid::new("phistory").striped(true).show(ui, |mut ui| {
-                            display_historical_stats( &mut ui, &PITCHING_HEADERS, &player.historical, &self.teams );
+                            display_historical_stats(&mut ui, &PITCHING_HEADERS, &player.historical, &self.teams);
                         });
                     }
 
@@ -894,17 +897,51 @@ impl epi::App for Imp019App {
                 }
                 Mode::LeagueRecords(disp_league) => {
                     let league = &self.leagues[*disp_league];
-                    for (stat, entry) in &league.records {
-                        if let Some(record) = entry {
-                            ui.horizontal(|ui| {
+
+                    let mut mode = Mode::LeagueRecords(*disp_league);
+
+                    let mut cnt = 0;
+                    let mut batting = true;
+
+                    ui.horizontal_wrapped(|ui| {
+                        ui.heading("Batting Records");
+                        ui.end_row();
+                        ui.end_row();
+
+                        for stat in &RECORD_STATS {
+                            if let Some(Some(record)) = league.records.get(stat) {
                                 let team = self.teams.get(&record.team_id).unwrap();
                                 let player = self.players.get(&record.player_id).unwrap();
-                                ui.label(format!("{}: {} ({}) {} ({})", stat, player.fullname(), team.abbr, stat.value(record.record), record.year));
-                            });
-                        }
-                    }
 
-                    Mode::LeagueRecords(*disp_league)
+                                if batting != stat.is_batting() {
+                                    cnt = 0;
+                                    batting = stat.is_batting();
+                                    ui.end_row();
+                                    ui.heading("Pitching Records");
+                                    ui.end_row();
+                                }
+
+                                ui.group(|ui| {
+                                    ui.vertical(|ui| {
+                                        ui.heading(format!("{}: {}", stat, stat.value(record.record)));
+
+                                        if ui.add(Button::new(player.fullname()).frame(false)).clicked() {
+                                            mode = Mode::Player(*disp_league, record.player_id, None);
+                                        }
+
+                                        ui.small(format!("{} - {}", &team.abbr, record.year));
+                                    });
+                                });
+
+                                cnt += 1;
+                                if cnt % 4 == 0 {
+                                    ui.end_row();
+                                }
+                            }
+                        }
+                    });
+
+                    mode
                 }
             }
         });

@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fmt;
+
 use crate::team::TeamId;
-use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Stat {
@@ -78,6 +79,27 @@ impl Stat {
 
     pub(crate) fn is_reverse_sort(&self) -> bool {
         matches!(self, Stat::Pavg | Stat::Pobp | Stat::Pslg | Stat::Pera | Stat::Pwhip)
+    }
+
+    pub(crate) fn is_qualified(&self, player_stats: &Stats, games: u32) -> bool {
+        let qual = match self {
+            Stat::Bavg |
+            Stat::Bobp |
+            Stat::Bslg => Some((Stat::Bpa, 31)),
+            Stat::Pobp |
+            Stat::Pslg |
+            Stat::Pera |
+            Stat::Pwhip => Some((Stat::Po, 30)),
+            _ => None,
+        };
+        if let Some((qstat, factor)) = qual {
+            let qval = player_stats.get_stat(qstat);
+            let qual = games * factor / 10;
+            if qval < qual {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -331,7 +353,6 @@ impl Stats {
 
         stats.calculate()
     }
-
 }
 
 #[derive(Default)]

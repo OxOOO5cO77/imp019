@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rand::rngs::ThreadRng;
 
 use crate::data::Data;
-use crate::player::{PlayerId, PlayerMap, generate_players, collect_all_active};
+use crate::player::{collect_all_active, generate_players, PlayerId, PlayerMap};
 use crate::schedule::Schedule;
 use crate::stat::{Stat, Stats};
 use crate::team::{TeamId, TeamMap};
@@ -68,26 +68,38 @@ impl League {
     }
 }
 
-const RECORD_STATS: [Stat; 10] = [
+pub(crate) const RECORD_STATS: [Stat; 16] = [
     Stat::Bhr,
+    Stat::Br,
+    Stat::Brbi,
+    Stat::Bso,
     Stat::Bh,
     Stat::B2b,
     Stat::B3b,
     Stat::Bbb,
-    Stat::Br,
-    Stat::Brbi,
     Stat::Bavg,
     Stat::Bobp,
     Stat::Bslg,
+    Stat::Pw,
+    Stat::Psv,
+    Stat::Pso,
+    Stat::Pwhip,
+    Stat::Pera,
 ];
 
-fn check_record(records: &mut HashMap<Stat, Option<LeagueRecord>>, player_stats: &Stats, player_id: PlayerId, team_id: TeamId, year: u32) {
+fn check_record(records: &mut HashMap<Stat, Option<LeagueRecord>>, player_stats: &Stats, player_id: PlayerId, team_id: TeamId, year: u32, games: u32) {
     for stat in &RECORD_STATS {
         let record = records.entry(*stat).or_insert(None);
         let pval = player_stats.get_stat(*stat);
 
         if let Some(rec) = record {
-            if rec.record >= pval {
+            let reverse = stat.is_reverse_sort();
+
+            if (reverse && rec.record <= pval) || (!reverse && rec.record >= pval) {
+                continue;
+            }
+
+            if !stat.is_qualified(player_stats, games) {
                 continue;
             }
         }
@@ -107,7 +119,7 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut TeamMap, play
             let team = teams.get_mut(&team_id).unwrap();
             for player_id in &team.players {
                 let player = players.get_mut(&player_id).unwrap();
-                check_record(&mut league.records, &player.get_stats(), *player_id, *team_id, year);
+                check_record(&mut league.records, &player.get_stats(), *player_id, *team_id, year, team.results.games());
                 player.record_stat_history(year, league.id, *team_id);
             }
             team.record_results(year, league_idx, rank, team.results);
