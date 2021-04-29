@@ -6,9 +6,9 @@ use rand::rngs::ThreadRng;
 use rand::seq::{IteratorRandom, SliceRandom};
 
 use crate::player::{Expect, ExpectMap, Handedness, Player, PlayerId, PlayerMap, Position};
+use crate::stat::Stat;
 use crate::team::{TeamId, TeamMap};
 use crate::util::gen_gamma;
-use crate::stat::Stat;
 
 #[derive(Copy, Clone, Default)]
 struct RunnerInfo {
@@ -56,22 +56,27 @@ impl Scoreboard {
         }
     }
 
-    fn advance_onbase(&mut self, batter: PlayerId, pitcher: PlayerId, earned: bool, amt: u8) -> u8 {
-        self.onbase[0] = Some(RunnerInfo { runner: batter, pitcher, earned });
-        for _ in 0..amt {
-            if self.onbase[1].is_some() {
-                if self.onbase[2].is_some() {
-                    if self.onbase[3].is_some() {
-                        self.runs_in.push(self.onbase[3].unwrap());
-                    }
-                    self.onbase[3] = self.onbase[2];
-                }
-                self.onbase[2] = self.onbase[1];
-            }
-            self.onbase[1] = self.onbase[0];
+    fn advance_onbase(&mut self, start: usize) {
+        if self.onbase[start].is_none() {
+            return;
         }
-        for idx in 0..amt as usize {
-            self.onbase[idx] = None;
+        match start {
+            3 => self.runs_in.push(self.onbase[3].unwrap()),
+            i if i < 3 => {
+                self.advance_onbase(i + 1);
+                self.onbase[i + 1] = self.onbase[i];
+            }
+            _ => return,
+        }
+
+        self.onbase[start] = None;
+    }
+
+
+    fn advance_batter(&mut self, batter: PlayerId, pitcher: PlayerId, earned: bool, amt: usize) -> u8 {
+        self.onbase[0] = Some(RunnerInfo { runner: batter, pitcher, earned });
+        for idx in 0..amt {
+            self.advance_onbase(idx);
         }
         0
     }
@@ -449,33 +454,33 @@ impl Game {
                 Expect::Single => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1)
                 }
                 Expect::Double => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 2)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 2)
                 }
                 Expect::Triple => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 3)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 3)
                 }
                 Expect::HomeRun => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 4)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 4)
                 }
                 Expect::Walk => {
                     pitches = pitches.max(4);
-                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1)
                 }
-                Expect::HitByPitch => bat_scoreboard.advance_onbase(batter_id, pitcher_id, earned, 1),
+                Expect::HitByPitch => bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1),
                 Expect::Error => {
                     box_target = Some(target);
                     Self::record_stat(&mut boxscore, fielder_id, Stat::Fe, None);
                     bat_scoreboard.e += 1;
-                    bat_scoreboard.advance_onbase(batter_id, pitcher_id, false, 1)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, false, 1)
                 }
                 Expect::Strikeout => {
                     pitches = pitches.max(3);
@@ -606,60 +611,129 @@ impl Schedule {
 
 #[cfg(test)]
 mod tests {
-    use crate::schedule::Scoreboard;
+    use crate::schedule::{RunnerInfo, Scoreboard};
 
     #[test]
     fn test_advance_onbase() {
-        let mut test1 = Scoreboard::new(0);
-        test1.advance_onbase(1, 0, true, 1);
-        assert!(test1.onbase[0].is_none());
-        assert!(test1.onbase[1].is_some());
-        assert!(test1.onbase[2].is_none());
-        assert!(test1.onbase[3].is_none());
+        let mut test = Scoreboard::new(0);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
 
-        test1.advance_onbase(2, 0, true, 2);
-        assert!(test1.onbase[0].is_none());
-        assert!(test1.onbase[1].is_none());
-        assert!(test1.onbase[2].is_some());
-        assert!(test1.onbase[3].is_some());
+        test.advance_onbase(0);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
 
-        test1.advance_onbase(3, 0, true, 1);
-        assert!(test1.onbase[0].is_none());
-        assert!(test1.onbase[1].is_some());
-        assert!(test1.onbase[2].is_some());
-        assert!(test1.onbase[3].is_some());
+        test.onbase[0] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.advance_onbase(0);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_some());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
 
-        test1.advance_onbase(4, 0, true, 4);
-        assert!(test1.onbase[0].is_none());
-        assert!(test1.onbase[1].is_none());
-        assert!(test1.onbase[2].is_none());
-        assert!(test1.onbase[3].is_none());
-        assert_eq!(test1.runs_in.len(), 4);
+        test.advance_onbase(0);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_some());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
 
-        test1.runs_in.clear();
-        test1.advance_onbase(3, 0, true, 3);
-        test1.advance_onbase(2, 0, true, 2);
-        test1.advance_onbase(1, 0, true, 3);
-        assert!(test1.onbase[0].is_none());
-        assert!(test1.onbase[1].is_none());
-        assert!(test1.onbase[2].is_none());
-        assert!(test1.onbase[3].is_some());
-        assert_eq!(test1.runs_in.len(), 2);
+        test.advance_onbase(1);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_some());
+        assert!(test.onbase[3].is_none());
 
-        test1.runs_in.clear();
-        test1.advance_onbase(1, 0, true, 4);
-        assert!(test1.onbase[0].is_none());
-        assert!(test1.onbase[1].is_none());
-        assert!(test1.onbase[2].is_none());
-        assert!(test1.onbase[3].is_none());
-        assert_eq!(test1.runs_in.len(), 2);
+        test.advance_onbase(2);
+        test.advance_onbase(3);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
+        assert_eq!(test.runs_in.len(), 1);
 
-        test1.runs_in.clear();
-        test1.advance_onbase(1, 0, true, 4);
-        assert!(test1.onbase[0].is_none());
-        assert!(test1.onbase[1].is_none());
-        assert!(test1.onbase[2].is_none());
-        assert!(test1.onbase[3].is_none());
-        assert_eq!(test1.runs_in.len(), 1);
+        test.onbase[0] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.onbase[1] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.onbase[2] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.onbase[3] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.advance_onbase(0);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_some());
+        assert!(test.onbase[2].is_some());
+        assert!(test.onbase[3].is_some());
+        assert_eq!(test.runs_in.len(), 2);
+
+        test.advance_onbase(1);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_some());
+        assert!(test.onbase[3].is_some());
+        assert_eq!(test.runs_in.len(), 3);
+
+        test.onbase[0] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.advance_onbase(0);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_some());
+        assert!(test.onbase[2].is_some());
+        assert!(test.onbase[3].is_some());
+        assert_eq!(test.runs_in.len(), 3);
+    }
+
+    #[test]
+    fn test_advance_onbase_n() {
+        let mut test = Scoreboard::new(0);
+
+        test.advance_batter(1, 0, true, 1);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_some());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
+
+        test.advance_batter(2, 0, true, 2);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_some());
+        assert!(test.onbase[3].is_some());
+
+        test.advance_batter(3, 0, true, 1);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_some());
+        assert!(test.onbase[2].is_some());
+        assert!(test.onbase[3].is_some());
+
+        test.advance_batter(4, 0, true, 4);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
+        assert_eq!(test.runs_in.len(), 4);
+
+        test.runs_in.clear();
+        test.advance_batter(3, 0, true, 3);
+        test.advance_batter(2, 0, true, 2);
+        test.advance_batter(1, 0, true, 3);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_some());
+        assert_eq!(test.runs_in.len(), 2);
+
+        test.runs_in.clear();
+        test.advance_batter(1, 0, true, 4);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
+        assert_eq!(test.runs_in.len(), 2);
+
+        test.runs_in.clear();
+        test.advance_batter(1, 0, true, 4);
+        assert!(test.onbase[0].is_none());
+        assert!(test.onbase[1].is_none());
+        assert!(test.onbase[2].is_none());
+        assert!(test.onbase[3].is_none());
+        assert_eq!(test.runs_in.len(), 1);
     }
 }
