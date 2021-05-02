@@ -8,7 +8,7 @@ use rand::rngs::ThreadRng;
 use crate::data::Data;
 use crate::league::{end_of_season, League, RECORD_STATS};
 use crate::player::{collect_all_active, generate_players, PlayerId, PlayerMap};
-use crate::schedule::{Game, GameLogEvent, Scoreboard};
+use crate::game::{Game, GameLogEvent, Scoreboard};
 use crate::stat::{HistoricalStats, Stat, Stats};
 use crate::team::{Team, TeamId, TeamMap};
 

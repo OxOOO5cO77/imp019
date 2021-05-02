@@ -9,6 +9,7 @@ pub use app::Imp019App;
 
 mod app;
 mod data;
+mod game;
 mod league;
 mod player;
 mod schedule;
