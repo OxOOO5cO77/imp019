@@ -87,12 +87,11 @@ impl Scoreboard {
     }
 
 
-    fn advance_batter(&mut self, batter: PlayerId, pitcher: PlayerId, earned: bool, amt: usize) -> u8 {
+    fn advance_batter(&mut self, batter: PlayerId, pitcher: PlayerId, earned: bool, amt: usize) {
         self.onbase[0] = Some(RunnerInfo { runner: batter, pitcher, earned });
         for idx in 0..amt {
             self.advance_onbase(idx);
         }
-        0
     }
 
     fn player_at_pos(&self, pos: Position) -> PlayerId {
@@ -452,34 +451,49 @@ impl Game {
             let result_outs = match result {
                 Expect::Single => {
                     box_target = Some(target);
+
+                    if target == Position::RightField {
+                        bat_scoreboard.advance_onbase(3);
+                        bat_scoreboard.advance_onbase(2);
+                    }
+
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
+                    0
                 }
                 Expect::Double => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 2)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 2);
+                    0
                 }
                 Expect::Triple => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 3)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 3);
+                    0
                 }
                 Expect::HomeRun => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
-                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 4)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 4);
+                    0
                 }
                 Expect::Walk => {
                     pitches = pitches.max(4);
-                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
+                    0
                 }
-                Expect::HitByPitch => bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1),
+                Expect::HitByPitch => {
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
+                    0
+                },
                 Expect::Error => {
                     box_target = Some(target);
                     Self::record_stat(&mut boxscore, fielder_id, Stat::Fe, None);
                     bat_scoreboard.e += 1;
-                    bat_scoreboard.advance_batter(batter_id, pitcher_id, false, 1)
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, false, 1);
+                    0
                 }
                 Expect::Strikeout => {
                     pitches = pitches.max(3);
@@ -487,8 +501,32 @@ impl Game {
                 }
                 Expect::Out => {
                     box_target = Some(target);
+
+                    let mut add_outs = 1;
+                    if outs < 2 {
+                        match target {
+                            Position::LeftField |
+                            Position::CenterField |
+                            Position::RightField => {
+                                bat_scoreboard.advance_onbase(3);
+                            }
+                            Position::Catcher |
+                            Position::StartingPitcher => {
+                                if bat_scoreboard.onbase[3].is_none() {
+                                    bat_scoreboard.advance_onbase(1);
+                                }
+                            }
+                            _ => {
+                                if bat_scoreboard.onbase[1].is_some() {
+                                    bat_scoreboard.onbase[1] = None;
+                                    add_outs += 1;
+                                }
+                            }
+                        }
+                    }
+
                     Self::record_stat(&mut boxscore, fielder_id, Stat::Fpo, None);
-                    1
+                    add_outs
                 }
             };
 
