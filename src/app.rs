@@ -6,9 +6,9 @@ use ordinal::Ordinal;
 use rand::rngs::ThreadRng;
 
 use crate::data::Data;
+use crate::game::{Game, GameLogEvent, Scoreboard};
 use crate::league::{end_of_season, League, RECORD_STATS};
 use crate::player::{collect_all_active, generate_players, PlayerId, PlayerMap};
-use crate::game::{Game, GameLogEvent, Scoreboard};
 use crate::stat::{HistoricalStats, Stat, Stats};
 use crate::team::{Team, TeamId, TeamMap};
 
@@ -336,7 +336,7 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
             let flip = if *header == result { !reverse } else { !header.is_reverse_sort() };
             mode = match mode {
                 Mode::BatLeaders(disp_league, _, _) => Mode::BatLeaders(disp_league, *header, flip),
-                Mode::PitLeaders(disp_league, _, _) => Mode::BatLeaders(disp_league, *header, flip),
+                Mode::PitLeaders(disp_league, _, _) => Mode::PitLeaders(disp_league, *header, flip),
                 _ => panic!(),
             }
         }
@@ -366,7 +366,7 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
         all_players.reverse()
     };
 
-    for (rank, ap) in all_players[0..30].iter().enumerate() {
+    for (rank, ap) in all_players.iter().enumerate() {
         let player = ap.1;
 
         ui.label(format!("{}", rank + 1));
@@ -879,8 +879,10 @@ impl epi::App for Imp019App {
                     let league = &self.leagues[*disp_league];
                     let mut mode = Mode::BatLeaders(*disp_league, *result, *reverse);
 
-                    egui::Grid::new("bleaders").striped(true).show(ui, |ui| {
-                        mode = display_leaders(ui, true, &BATTING_HEADERS, league, &self.teams, &self.players, mode);
+                    ScrollArea::auto_sized().show(ui, |ui| {
+                        egui::Grid::new("bleaders").striped(true).show(ui, |ui| {
+                            mode = display_leaders(ui, true, &BATTING_HEADERS, league, &self.teams, &self.players, mode);
+                        });
                     });
 
                     mode
@@ -889,8 +891,10 @@ impl epi::App for Imp019App {
                     let league = &self.leagues[*disp_league];
                     let mut mode = Mode::PitLeaders(*disp_league, *result, *reverse);
 
-                    egui::Grid::new("pleaders").striped(true).show(ui, |ui| {
-                        mode = display_leaders(ui, false, &PITCHING_HEADERS, league, &self.teams, &self.players, mode);
+                    ScrollArea::auto_sized().show(ui, |ui| {
+                        egui::Grid::new("pleaders").striped(true).show(ui, |ui| {
+                            mode = display_leaders(ui, false, &PITCHING_HEADERS, league, &self.teams, &self.players, mode);
+                        });
                     });
 
                     mode
