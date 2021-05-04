@@ -405,11 +405,12 @@ const BATTING_HEADERS: [Stat; 16] = [
     Stat::Bslg,
 ];
 
-const PITCHING_HEADERS: [Stat; 23] = [
+const PITCHING_HEADERS: [Stat; 24] = [
     Stat::G,
     Stat::Pw,
     Stat::Pl,
     Stat::Psv,
+    Stat::Pbs,
     Stat::Phld,
     Stat::Pcg,
     Stat::Psho,
@@ -578,7 +579,7 @@ impl epi::App for Imp019App {
                             _ => {}
                         };
 
-                        let skip = matches!(event.event, Stat::Pw|Stat::Pcg|Stat::Psho|Stat::Pl|Stat::Psv|Stat::Phld|Stat::Po|Stat::Pso);
+                        let skip = matches!(event.event, Stat::Pw|Stat::Pcg|Stat::Psho|Stat::Pl|Stat::Psv|Stat::Pbs|Stat::Phld|Stat::Po|Stat::Pso);
 
                         if !skip {
                             let runs = if tophalf { &mut awayruns } else { &mut homeruns };

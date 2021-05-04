@@ -551,7 +551,13 @@ impl Game {
                 }
             }
 
+            let score_diff_pre = pit_scoreboard.r as i8 - bat_scoreboard.r as i8;
             bat_scoreboard.record_runs();
+            let score_diff_post = pit_scoreboard.r as i8 - bat_scoreboard.r as i8;
+
+            if score_diff_pre > 0 && score_diff_pre <= 3 && score_diff_post <= 0 && !pit_scoreboard.pitcher_record.is_empty() {
+                Self::record_stat(&mut boxscore, pitcher_id, Stat::Pbs, None);
+            }
 
             bat_scoreboard.ab = (bat_scoreboard.ab + 1) % 9;
 
