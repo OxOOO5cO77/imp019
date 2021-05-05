@@ -21,7 +21,9 @@ pub(crate) struct League {
     id: u32,
     pub(crate) teams: Vec<TeamId>,
     pub(crate) schedule: Schedule,
+    pub(crate) cur_idx: usize,
     pub(crate) records: HashMap<Stat, Option<LeagueRecord>>,
+
 }
 
 impl League {
@@ -48,17 +50,19 @@ impl League {
             let team = teams.get_mut(team_id).unwrap();
             team.results.reset();
         }
-        self.schedule = Schedule::new(&self.teams, rng)
+        self.schedule = Schedule::new(&self.teams, rng);
+        self.cur_idx = 0;
     }
 
     pub(crate) fn sim(&mut self, team_data: &mut TeamMap, players: &mut PlayerMap, year: u32, mut rng: &mut ThreadRng) -> bool {
-        if let Some(first_idx) = self.schedule.games.iter().position(|o| o.home.r == o.away.r) {
+        if self.cur_idx < self.schedule.games.len() {
             let teams = self.teams.len();
-            for idx in first_idx..(first_idx + (teams / 2)) {
+            for idx in self.cur_idx..(self.cur_idx + (teams / 2)) {
                 if let Some(game) = self.schedule.games.get_mut(idx) {
                     game.sim(team_data, players, year, &mut rng);
                 }
             }
+            self.cur_idx += teams / 2;
             return true;
         }
 

@@ -14,7 +14,7 @@ use crate::team::{Team, TeamId, TeamMap};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Mode {
-    Schedule(usize),
+    Schedule(usize, Option<usize>),
     BoxScore(usize, usize),
     GameLog(usize, usize),
     Standings(usize),
@@ -30,8 +30,8 @@ enum Mode {
 pub struct Imp019App {
     rng: ThreadRng,
     data: Data,
-    players: PlayerMap,
-    teams: TeamMap,
+    player_map: PlayerMap,
+    team_map: TeamMap,
     leagues: Vec<League>,
     year: u32,
     disp_mode: Mode,
@@ -43,11 +43,11 @@ impl Default for Imp019App {
         Imp019App {
             rng: rand::thread_rng(),
             data: Data::new(),
-            players: HashMap::new(),
-            teams: HashMap::new(),
+            player_map: HashMap::new(),
+            team_map: HashMap::new(),
             leagues: Vec::new(),
             year: 2030,
-            disp_mode: Mode::Schedule(0),
+            disp_mode: Mode::Schedule(0, None),
             sim_all: false,
         }
     }
@@ -91,11 +91,11 @@ impl Imp019App {
         Imp019App {
             rng,
             data,
-            players,
-            teams,
+            player_map: players,
+            team_map: teams,
             leagues,
             year,
-            disp_mode: Mode::Schedule(0),
+            disp_mode: Mode::Schedule(0, None),
             sim_all: false,
         }
     }
@@ -103,7 +103,7 @@ impl Imp019App {
     pub fn update(&mut self) -> bool {
         let mut result = false;
         for league in &mut self.leagues {
-            result = league.sim(&mut self.teams, &mut self.players, self.year, &mut self.rng) || result;
+            result = league.sim(&mut self.team_map, &mut self.player_map, self.year, &mut self.rng) || result;
         }
         result
     }
@@ -455,7 +455,7 @@ impl epi::App for Imp019App {
                 if ui.button("Sim").clicked() {
                     let result = self.update();
                     if !result {
-                        end_of_season(&mut self.leagues, &mut self.teams, &mut self.players, 4, self.year, &self.data, &mut self.rng);
+                        end_of_season(&mut self.leagues, &mut self.team_map, &mut self.player_map, 4, self.year, &self.data, &mut self.rng);
                         self.year += 1;
                     }
                 };
@@ -476,7 +476,7 @@ impl epi::App for Imp019App {
                 ui.horizontal(|ui| {
                     ui.label(format!("League {}", league_idx + 1));
                     if ui.button("Sche").clicked() {
-                        self.disp_mode = Mode::Schedule(league_idx);
+                        self.disp_mode = Mode::Schedule(league_idx, None);
                     }
                     if ui.button("Stan").clicked() {
                         self.disp_mode = Mode::Standings(league_idx);
@@ -497,48 +497,51 @@ impl epi::App for Imp019App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             self.disp_mode = match &self.disp_mode {
-                Mode::Schedule(disp_league) => {
+                Mode::Schedule(disp_league, cur_day) => {
                     let league = &self.leagues[*disp_league];
                     let total_games = league.schedule.games.len();
 
-                    let cur_idx = league.schedule.games.iter().position(|o| o.home.r == o.away.r).unwrap_or(total_games);
                     let teams = league.teams.len();
-
                     let half_teams = teams / 2;
 
-                    if cur_idx < total_games {
-                        ui.heading(format!("Today ({})", cur_idx / half_teams));
-                        ui.group(|ui| {
-                            ui.horizontal_wrapped(|ui| {
-                                for idx in cur_idx..(cur_idx + half_teams) {
-                                    let game = &league.schedule.games[idx];
-                                    display_game(ui, game, &self.teams);
-                                }
-                            });
-                        });
-                    }
+                    let mut mode = Mode::Schedule(*disp_league, *cur_day);
+                    let cur = cur_day.unwrap_or(league.cur_idx / half_teams);
+                    let start = cur * half_teams;
+                    let end = start + half_teams;
 
-                    let mut mode = Mode::Schedule(*disp_league);
-                    if cur_idx > 0 {
-                        ui.heading("Yesterday");
-                        let end = cur_idx as i32;
-                        let start = end - (half_teams as i32);
-                        ui.group(|ui| {
-                            ui.horizontal_wrapped(|ui| {
-                                for past_idx in start..end {
-                                    if past_idx >= 0 {
-                                        let game = &league.schedule.games[past_idx as usize];
-                                        if display_game(ui, game, &self.teams) {
-                                            mode = Mode::BoxScore(*disp_league, past_idx as usize)
-                                        }
-                                        if ((past_idx - start + 1) % 5) == 0 {
-                                            ui.end_row();
-                                        }
+                    ui.horizontal_wrapped(|ui| {
+                        if ui.add(egui::Button::new("< Prev").enabled(cur > 0)).clicked() {
+                            mode = Mode::Schedule(*disp_league, Some(cur - 1));
+                        }
+                        if ui.button("Today").clicked() {
+                            mode = Mode::Schedule(*disp_league, None);
+                        }
+                        if ui.add(egui::Button::new("Next >").enabled(end <= total_games)).clicked() {
+                            mode = Mode::Schedule(*disp_league, Some(cur + 1));
+                        }
+                    });
+                    ui.end_row();
+
+                    ui.heading(format!("Day {}", cur + 1));
+
+                    ui.group(|ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            if end <= total_games {
+                                for idx in start..end {
+                                    let game = &league.schedule.games[idx as usize];
+                                    if display_game(ui, game, &self.team_map) {
+                                        mode = Mode::BoxScore(*disp_league, idx as usize)
+                                    }
+                                    if ((idx - start + 1) % 5) == 0 {
+                                        ui.end_row();
                                     }
                                 }
-                            });
+                            } else {
+                                ui.label("End of season.");
+                            }
                         });
-                    }
+                    });
+
                     mode
                 }
                 Mode::BoxScore(disp_league, game_idx) => {
@@ -546,15 +549,17 @@ impl epi::App for Imp019App {
                     let mut mode = Mode::BoxScore(*disp_league, *game_idx);
                     let game = &league.schedule.games[*game_idx];
 
-                    let awayteam = self.teams.get(&game.away.id).unwrap();
-                    let hometeam = self.teams.get(&game.home.id).unwrap();
+                    let awayteam = self.team_map.get(&game.away.id).unwrap();
+                    let hometeam = self.team_map.get(&game.home.id).unwrap();
 
                     let mut awayruns = Vec::new();
                     let mut homeruns = Vec::new();
 
                     ui.horizontal(|ui| {
                         if ui.button("Back").clicked() {
-                            mode = Mode::Schedule(*disp_league);
+                            let half_teams = league.teams.len() / 2;
+                            let cur_day = game_idx / half_teams;
+                            mode = Mode::Schedule(*disp_league, Some(cur_day));
                         }
                         if ui.button("Game Log").clicked() {
                             mode = Mode::GameLog(*disp_league, *game_idx);
@@ -624,15 +629,15 @@ impl epi::App for Imp019App {
 
                     ui.horizontal(|ui| {
                         if let Some(w) = winner {
-                            let pitcher = self.players.get(&w).unwrap();
+                            let pitcher = self.player_map.get(&w).unwrap();
                             ui.label(format!("W: {}", pitcher.fname()));
                         }
                         if let Some(l) = loser {
-                            let pitcher = self.players.get(&l).unwrap();
+                            let pitcher = self.player_map.get(&l).unwrap();
                             ui.label(format!("L: {}", pitcher.fname()));
                         }
                         if let Some(sv) = save {
-                            let pitcher = self.players.get(&sv).unwrap();
+                            let pitcher = self.player_map.get(&sv).unwrap();
                             ui.label(format!("SV: {}", pitcher.fname()));
                         }
                     });
@@ -644,12 +649,12 @@ impl epi::App for Imp019App {
                             match i {
                                 0 => {
                                     egui::Grid::new("Away Batting").show(col, |ui| {
-                                        display_bo(ui, &game.away, awayteam, &self.players, &stat_map);
+                                        display_bo(ui, &game.away, awayteam, &self.player_map, &stat_map);
                                     });
                                 }
                                 1 => {
                                     egui::Grid::new("Home Batting").show(col, |ui| {
-                                        display_bo(ui, &game.home, hometeam, &self.players, &stat_map);
+                                        display_bo(ui, &game.home, hometeam, &self.player_map, &stat_map);
                                     });
                                 }
                                 _ => {}
@@ -664,12 +669,12 @@ impl epi::App for Imp019App {
                             match i {
                                 0 => {
                                     egui::Grid::new("Away Pitching").show(col, |ui| {
-                                        display_pitching(ui, &game.away, awayteam, &self.players, &stat_map);
+                                        display_pitching(ui, &game.away, awayteam, &self.player_map, &stat_map);
                                     });
                                 }
                                 1 => {
                                     egui::Grid::new("Home Pitching").show(col, |ui| {
-                                        display_pitching(ui, &game.home, hometeam, &self.players, &stat_map);
+                                        display_pitching(ui, &game.home, hometeam, &self.player_map, &stat_map);
                                     });
                                 }
                                 _ => {}
@@ -695,7 +700,7 @@ impl epi::App for Imp019App {
                         let mut previnn = 0;
 
                         for_each_event(game, |inning, tophalf, event, error| {
-                            let player = self.players.get(&event.player).unwrap();
+                            let player = self.player_map.get(&event.player).unwrap();
                             let player_str = player.fullname();
 
                             let pitching_change = event.event == Stat::G && player.pos.is_pitcher();
@@ -758,7 +763,7 @@ impl epi::App for Imp019App {
 
                         let teams = &mut league.teams.iter().collect::<Vec<_>>();
                         teams.sort_by_key(|o| {
-                            let team = self.teams.get(*o).unwrap();
+                            let team = self.team_map.get(*o).unwrap();
                             team.win_pct()
                         });
                         teams.reverse();
@@ -766,7 +771,7 @@ impl epi::App for Imp019App {
 
                         let mut rank = 1;
                         for team_id in teams.iter() {
-                            let team = self.teams.get(*team_id).unwrap();
+                            let team = self.team_map.get(*team_id).unwrap();
                             ui.label(format!("{}", rank));
                             ui.label(team.abbr.as_str());
                             if ui.add(Button::new(team.name()).frame(false)).clicked() {
@@ -785,7 +790,7 @@ impl epi::App for Imp019App {
                         mode = Mode::Standings(*disp_league);
                     }
 
-                    let team = self.teams.get(id).unwrap();
+                    let team = self.team_map.get(id).unwrap();
                     ui.label(team.name());
                     ui.label(format!("Founded: {}", team.history.founded));
                     ui.label(format!("Best: {}", as_league(team.history.best)));
@@ -825,13 +830,13 @@ impl epi::App for Imp019App {
                                 ui.heading("Batting");
 
                                 egui::Grid::new("batting").striped(true).show(ui, |mut ui| {
-                                    if let Some(player_id) = display_team_stats(&mut ui, true, &BATTING_HEADERS, &team.players, &self.players) {
+                                    if let Some(player_id) = display_team_stats(&mut ui, true, &BATTING_HEADERS, &team.players, &self.player_map) {
                                         mode = Mode::Player(*disp_league, player_id, Some(*id));
                                     }
                                 });
                                 ui.heading("Pitching");
                                 egui::Grid::new("pitching").striped(true).show(ui, |mut ui| {
-                                    if let Some(player_id) = display_team_stats(&mut ui, false, &PITCHING_HEADERS, &team.players, &self.players) {
+                                    if let Some(player_id) = display_team_stats(&mut ui, false, &PITCHING_HEADERS, &team.players, &self.player_map) {
                                         mode = Mode::Player(*disp_league, player_id, Some(*id));
                                     }
                                 });
@@ -845,7 +850,7 @@ impl epi::App for Imp019App {
                 Mode::Player(disp_league, player_id, team_id) => {
                     let mut mode = Mode::Player(*disp_league, *player_id, *team_id);
 
-                    let player = self.players.get(player_id).unwrap();
+                    let player = self.player_map.get(player_id).unwrap();
 
                     if ui.button("Close").clicked() {
                         if let Some(team_id) = team_id {
@@ -865,12 +870,12 @@ impl epi::App for Imp019App {
                     if !player.pos.is_pitcher() {
                         ui.heading("Batting History");
                         egui::Grid::new("bhistory").striped(true).show(ui, |mut ui| {
-                            display_historical_stats(&mut ui, &BATTING_HEADERS, &player.historical, &self.teams);
+                            display_historical_stats(&mut ui, &BATTING_HEADERS, &player.historical, &self.team_map);
                         });
                     } else {
                         ui.heading("Pitching History");
                         egui::Grid::new("phistory").striped(true).show(ui, |mut ui| {
-                            display_historical_stats(&mut ui, &PITCHING_HEADERS, &player.historical, &self.teams);
+                            display_historical_stats(&mut ui, &PITCHING_HEADERS, &player.historical, &self.team_map);
                         });
                     }
 
@@ -882,7 +887,7 @@ impl epi::App for Imp019App {
 
                     ScrollArea::auto_sized().show(ui, |ui| {
                         egui::Grid::new("bleaders").striped(true).show(ui, |ui| {
-                            mode = display_leaders(ui, true, &BATTING_HEADERS, league, &self.teams, &self.players, mode);
+                            mode = display_leaders(ui, true, &BATTING_HEADERS, league, &self.team_map, &self.player_map, mode);
                         });
                     });
 
@@ -894,7 +899,7 @@ impl epi::App for Imp019App {
 
                     ScrollArea::auto_sized().show(ui, |ui| {
                         egui::Grid::new("pleaders").striped(true).show(ui, |ui| {
-                            mode = display_leaders(ui, false, &PITCHING_HEADERS, league, &self.teams, &self.players, mode);
+                            mode = display_leaders(ui, false, &PITCHING_HEADERS, league, &self.team_map, &self.player_map, mode);
                         });
                     });
 
@@ -915,8 +920,8 @@ impl epi::App for Imp019App {
 
                         for stat in &RECORD_STATS {
                             if let Some(Some(record)) = league.records.get(stat) {
-                                let team = self.teams.get(&record.team_id).unwrap();
-                                let player = self.players.get(&record.player_id).unwrap();
+                                let team = self.team_map.get(&record.team_id).unwrap();
+                                let player = self.player_map.get(&record.player_id).unwrap();
 
                                 if batting != stat.is_batting() {
                                     cnt = 0;
