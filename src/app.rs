@@ -247,7 +247,11 @@ fn for_each_event<T>(game: &Game, mut action: T) where T: FnMut(usize, bool, &Ga
             error = true;
         }
 
-        if event.event == Stat::Bo || event.event == Stat::Bso {
+        if event.event == Stat::Bgidp {
+            outs += 1;  // add the second out below
+        }
+
+        if matches!( event.event, Stat::Bo | Stat::Bso | Stat::Bgidp ) {
             if !error {
                 outs += 1;
             }
@@ -386,7 +390,7 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
     mode
 }
 
-const BATTING_HEADERS: [Stat; 16] = [
+const BATTING_HEADERS: [Stat; 17] = [
     Stat::G,
     Stat::Gs,
     Stat::Bpa,
@@ -398,6 +402,7 @@ const BATTING_HEADERS: [Stat; 16] = [
     Stat::Bbb,
     Stat::Bhbp,
     Stat::Bso,
+    Stat::Bgidp,
     Stat::Br,
     Stat::Brbi,
     Stat::Bavg,
@@ -736,6 +741,7 @@ impl epi::App for Imp019App {
                                 Stat::Bbb => format!("{} walks.", player_str),
                                 Stat::Bhbp => format!("{} is hit by pitch.", player_str),
                                 Stat::Bso => format!("{} strikes out.", player_str),
+                                Stat::Bgidp => format!("{} grounds into double play.", player_str),
                                 Stat::Bo => if error {
                                     format!("{} reaches on error{}.", player_str, target_str)
                                 } else {

@@ -530,7 +530,7 @@ impl Game {
                 }
             };
 
-            Self::record_stat(&mut boxscore, batter_id, result.to_batting_stat(), box_target);
+            Self::record_stat(&mut boxscore, batter_id, result.to_batting_stat(result_outs), box_target);
 
             if result != Expect::Error {
                 for _ in &bat_scoreboard.runs_in {

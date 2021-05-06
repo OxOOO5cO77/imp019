@@ -8,9 +8,9 @@ use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
 use crate::data::Data;
+use crate::stat::{HistoricalStats, Stat, Stats};
 use crate::team::TeamId;
 use crate::util::{gen_gamma, gen_normal};
-use crate::stat::{Stat, HistoricalStats, Stats};
 
 pub(crate) type PlayerId = u64;
 pub(crate) type PlayerMap = HashMap<PlayerId, Player>;
@@ -89,7 +89,6 @@ impl Display for Position {
         };
         write!(f, "{}", str)
     }
-
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -147,7 +146,7 @@ pub(crate) enum Expect {
 }
 
 impl Expect {
-    pub(crate) fn to_batting_stat(&self) -> Stat {
+    pub(crate) fn to_batting_stat(&self, outs: u8) -> Stat {
         match self {
             Self::Single => Stat::B1b,
             Self::Double => Stat::B2b,
@@ -156,7 +155,7 @@ impl Expect {
             Self::Walk => Stat::Bbb,
             Self::HitByPitch => Stat::Bhbp,
             Self::Strikeout => Stat::Bso,
-            Self::Out => Stat::Bo,
+            Self::Out => if outs == 1 { Stat::Bo } else { Stat::Bgidp }
             Self::Error => Stat::Bo,
         }
     }

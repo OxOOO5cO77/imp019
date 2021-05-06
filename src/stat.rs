@@ -20,6 +20,7 @@ pub(crate) enum Stat {
     Bo,
     Br,
     Brbi,
+    Bgidp,
     // calculated
     Bh,
     Bab,
@@ -60,7 +61,7 @@ pub(crate) enum Stat {
 
 impl Stat {
     pub(crate) fn is_batting(&self) -> bool {
-        matches!(self, Stat::B1b | Stat::B2b | Stat::B3b | Stat::Bhr | Stat::Bbb | Stat::Bhbp | Stat::Bso | Stat::Bo | Stat::Br | Stat::Brbi | Stat::Bh | Stat::Bab | Stat::Bpa | Stat::Bavg | Stat::Bobp | Stat::Bslg)
+        matches!(self, Stat::B1b | Stat::B2b | Stat::B3b | Stat::Bhr | Stat::Bbb | Stat::Bhbp | Stat::Bso | Stat::Bo | Stat::Bgidp | Stat::Br | Stat::Brbi | Stat::Bh | Stat::Bab | Stat::Bpa | Stat::Bavg | Stat::Bobp | Stat::Bslg)
     }
 
     pub(crate) fn value(&self, val: u32) -> String {
@@ -117,6 +118,7 @@ impl Display for Stat {
             Stat::Bhbp => "HBP",
             Stat::Bso => "SO",
             Stat::Bo => "O",
+            Stat::Bgidp => "GIDP",
             Stat::Br => "R",
             Stat::Brbi => "RBI",
             Stat::Bh => "H",
@@ -170,6 +172,7 @@ pub(crate) struct Stats {
     pub(crate) b_rbi: u32,
     pub(crate) b_so: u32,
     pub(crate) b_o: u32,
+    pub(crate) b_gidp: u32,
     pub(crate) b_h: u32,
     pub(crate) b_ab: u32,
     pub(crate) b_pa: u32,
@@ -219,6 +222,7 @@ impl Stats {
             Stat::Bhbp => self.b_hbp,
             Stat::Bso => self.b_so,
             Stat::Bo => self.b_o,
+            Stat::Bgidp => self.b_gidp,
             Stat::Br => self.b_r,
             Stat::Brbi => self.b_rbi,
             Stat::Bh => self.b_h,
@@ -325,6 +329,10 @@ impl Stats {
                     stats.b_o += 1
                 }
                 Stat::Bo => stats.b_o += 1,
+                Stat::Bgidp => {
+                    stats.b_gidp += 1;
+                    stats.b_o += 1
+                },
                 Stat::Br => stats.b_r += 1,
                 Stat::Brbi => stats.b_rbi += 1,
                 Stat::P1b => stats.p_1b += 1,
@@ -381,6 +389,7 @@ impl HistoricalStats {
             b_hbp: *self.stats.get(&Stat::Bhbp).unwrap_or(&0),
             b_so: *self.stats.get(&Stat::Bso).unwrap_or(&0),
             b_o: *self.stats.get(&Stat::Bo).unwrap_or(&0),
+            b_gidp: *self.stats.get(&Stat::Bgidp).unwrap_or(&0),
             b_r: *self.stats.get(&Stat::Br).unwrap_or(&0),
             b_rbi: *self.stats.get(&Stat::Brbi).unwrap_or(&0),
             p_1b: *self.stats.get(&Stat::P1b).unwrap_or(&0),
