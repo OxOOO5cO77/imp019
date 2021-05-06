@@ -42,7 +42,7 @@ pub(crate) struct DefenseInfo {
 pub(crate) struct PitcherRecord {
     pub(crate) pitcher: PlayerId,
     outs: u8,
-    run_diff_in: i8,
+    save_situation: bool,
     run_diff_out: i8,
 }
 
@@ -59,7 +59,7 @@ pub(crate) struct Scoreboard {
     pitcher: PlayerId,
     pitches: u32,
     pitcher_outs: u8,
-    pitcher_run_diff_in: i8,
+    pitcher_save_sit: bool,
     pub(crate) pitcher_record: Vec<PitcherRecord>,
 }
 
@@ -107,7 +107,7 @@ impl Scoreboard {
         self.pitcher_record.push(PitcherRecord {
             pitcher: self.pitcher,
             outs: self.pitcher_outs,
-            run_diff_in: self.pitcher_run_diff_in,
+            save_situation: self.pitcher_save_sit,
             run_diff_out: self.r as i8 - other_r,
         });
     }
@@ -278,6 +278,7 @@ impl Game {
     fn sub_pitcher(&mut self, inning: &Inning, teams: &mut TeamMap, players: &mut PlayerMap, boxscore: &mut GameLog, rng: &mut ThreadRng) {
         let bat_scoreboard = self.batting(inning);
         let bat_r = bat_scoreboard.r as i8;
+        let on_base = bat_scoreboard.onbase.iter().filter(|o| o.is_some()).count() as i8;
         //let batter_id = bat_scoreboard.bo[bat_scoreboard.ab].player;
         //let batter_hand = players.get(&batter_id).unwrap().bats;
 
@@ -288,12 +289,14 @@ impl Game {
         let pitch_max = Self::max_pitches_for_pos(cur_pitching);
 
         let run_diff = pit_r - bat_r;
+        let save_threat = ( on_base + 2 - run_diff ) >= 0;
+        let save_situation = save_threat || (run_diff > 0 && run_diff <= 3);
 
         let mut used_pitchers = pit_scoreboard.pitcher_record.iter().map(|o| o.pitcher).collect::<Vec<_>>();
         used_pitchers.push(pit_scoreboard.pitcher);
         let available = pit_team.players.iter().filter(|o| !used_pitchers.contains(*o)).collect::<Vec<_>>();
 
-        let sub = if run_diff > 0 && run_diff <= 3 {
+        let sub = if save_situation {
             if inning.number == 8 && cur_pitching != Position::Setup {
                 available.iter().filter(|o| players.get(o).unwrap().pos == Position::Setup).choose(rng)
             } else if inning.number >= 9 && cur_pitching != Position::Closer {
@@ -321,7 +324,7 @@ impl Game {
             pit_scoreboard.pitcher = new_pitcher;
             pit_scoreboard.pitches = 0;
             pit_scoreboard.pitcher_outs = 0;
-            pit_scoreboard.pitcher_run_diff_in = run_diff;
+            pit_scoreboard.pitcher_save_sit = save_situation;
             Self::record_stat(boxscore, new_pitcher, Stat::G, None);
         }
     }
@@ -366,13 +369,13 @@ impl Game {
             }
 
             let last_pr = &sb.pitcher_record[last_pitcher];
-            if (last_pr.run_diff_in <= 3 || last_pr.outs >= 9) && last_pr.pitcher != w {
+            if (last_pr.save_situation || last_pr.outs >= 9) && last_pr.pitcher != w {
                 Self::record_stat(boxscore, last_pr.pitcher, Stat::Psv, None);
             }
 
             if last_pitcher > 0 {
                 let mut hold_idx = last_pitcher - 1;
-                while hold_idx > 0 && sb.pitcher_record[hold_idx].pitcher != w && sb.pitcher_record[hold_idx].run_diff_in <= 3 {
+                while hold_idx > 0 && sb.pitcher_record[hold_idx].pitcher != w && sb.pitcher_record[hold_idx].save_situation {
                     Self::record_stat(boxscore, sb.pitcher_record[hold_idx].pitcher, Stat::Phld, None);
                     hold_idx -= 1;
                 }
