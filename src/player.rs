@@ -117,6 +117,7 @@ pub(crate) struct Player {
     pub(crate) active: bool,
     name_first: String,
     name_last: String,
+    pub(crate) birthplace: String,
     pub(crate) born: u32,
     pub(crate) pos: Position,
     pub(crate) bats: Handedness,
@@ -403,7 +404,11 @@ impl Player {
         rng.gen_bool(*self.bat_expect.0.get(&Expect::Error).unwrap())
     }
 
-    pub(crate) fn new(name_first: String, name_last: String, pos: &Position, year: u32, rng: &mut ThreadRng) -> Self {
+    pub(crate) fn new(data: &Data, pos: &Position, year: u32, rng: &mut ThreadRng) -> Self {
+        let name_first = data.choose_name_first(rng);
+        let name_last = data.choose_name_last(rng);
+        let birthplace = data.choose_location(rng);
+
         let age = 18 + gen_gamma(rng, 2.0, 3.0).round() as u32;
 
         let batting_hand = vec![
@@ -434,6 +439,7 @@ impl Player {
             active: true,
             name_first,
             name_last,
+            birthplace,
             born: year - age,
             pos: *pos,
             bats: *bat_hand,
@@ -541,9 +547,7 @@ pub(crate) fn generate_players(players: &mut PlayerMap, count: usize, year: u32,
     }
 
     for _ in 0..count {
-        let name_first = data.choose_name_first(rng);
-        let name_last = data.choose_name_last(rng);
-        players.insert(player_id, Player::new(name_first, name_last, pos_gen.choose(rng).unwrap(), year, rng));
+        players.insert(player_id, Player::new(data, pos_gen.choose(rng).unwrap(), year, rng));
         player_id += 1;
     }
 }

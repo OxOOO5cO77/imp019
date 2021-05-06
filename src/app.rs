@@ -862,7 +862,7 @@ impl epi::App for Imp019App {
                         }
                     }
                     ui.label(format!("Name: {}", player.fullname()));
-                    ui.label(format!("Age: {} Born: {}", player.age(self.year), player.born));
+                    ui.label(format!("Age: {} Born: {} {}", player.age(self.year), player.born, player.birthplace));
                     ui.label(format!("Pos: {}", player.pos));
                     ui.label(format!("Bats: {}", player.bats));
                     ui.label(format!("Throws: {}", player.throws));

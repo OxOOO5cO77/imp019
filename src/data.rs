@@ -3,8 +3,37 @@ use std::collections::HashSet;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
+struct LocData {
+    abbr: String,
+    city: String,
+    state: String,
+    country: String,
+    population: u32,
+//    coords: String,
+}
+
+impl LocData {
+    fn parse(in_str: &str) -> Self {
+        let mut parts = in_str.split(',');
+        let abbr = parts.next().unwrap_or("").to_owned();
+        let city = parts.next().unwrap_or("").to_owned();
+        let state = parts.next().unwrap_or("").to_owned();
+        let country = parts.next().unwrap_or("").to_owned();
+        let population = parts.next().unwrap_or("").parse::<u32>().unwrap_or(0);
+//        let coords = parts.next().unwrap_or("").to_owned();
+        Self {
+            abbr,
+            city,
+            state,
+            country,
+            population,
+//            coords,
+        }
+    }
+}
+
 pub(crate) struct Data {
-    loc: Vec<String>,
+    loc: Vec<LocData>,
     nick: Vec<String>,
     names_first: Vec<(String, u32)>,
     names_last: Vec<(String, u32)>,
@@ -31,7 +60,7 @@ fn weighted(in_str: &str) -> Option<(String, u32)> {
 
 impl Data {
     pub(crate) fn new() -> Self {
-        let loc = include_str!("../data/loc.txt").lines().map(|o| o.to_string()).collect();
+        let loc = include_str!("../data/loc.txt").lines().map(|o| LocData::parse(o)).collect();
         let nick = include_str!("../data/nick.txt").lines().map(|o| o.to_string()).collect();
         let names_first = include_str!("../data/names_first.txt").lines().map(weighted).filter_map(|o| o).collect();
         let names_last = include_str!("../data/names_last.txt").lines().map(weighted).filter_map(|o| o).collect();
@@ -46,10 +75,10 @@ impl Data {
 
     pub(crate) fn get_locs(&self, existing: &mut HashSet<(String, String, String)>, rng: &mut ThreadRng, count: usize) -> Vec<(String, String, String)> {
         while existing.len() != count {
-            let mut loc = self.loc.choose(rng).unwrap().split(',');
-            let abbr = loc.next().unwrap_or("").to_owned();
-            let city = loc.next().unwrap_or("").to_owned();
-            let state = format!("{}-{}", loc.next().unwrap_or(""), loc.next().unwrap_or(""));
+            let loc = self.loc.choose(rng).unwrap();
+            let abbr = loc.abbr.clone();
+            let city = loc.city.clone();
+            let state = format!("{}-{}", loc.state.clone(), loc.country.clone());
 
             existing.insert((abbr, city, state));
         }
@@ -64,11 +93,28 @@ impl Data {
     }
 
     pub(crate) fn choose_name_first(&self, rng: &mut ThreadRng) -> String {
-        self.names_first.choose_weighted(rng, |o| o.1).unwrap().0.clone()
+        if let Ok(first_name) = self.names_first.choose_weighted(rng, |o| o.1) {
+            first_name.0.clone()
+        } else {
+            "".to_string()
+        }
     }
 
     pub(crate) fn choose_name_last(&self, rng: &mut ThreadRng) -> String {
-        self.names_last.choose_weighted(rng, |o| o.1).unwrap().0.clone()
+        if let Ok(last_name) = self.names_last.choose_weighted(rng, |o| o.1) {
+            last_name.0.clone()
+        } else {
+            "".to_string()
+        }
+    }
+
+    pub(crate) fn choose_location(&self, rng: &mut ThreadRng) -> String {
+        if let Ok(loc_data) = self.loc.choose_weighted(rng, |o| o.population) {
+            format!("{}, {}, {}", loc_data.city, loc_data.state, loc_data.country )
+        } else {
+            "".to_string()
+        }
+
     }
 }
 
