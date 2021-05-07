@@ -445,6 +445,7 @@ impl Game {
 
             let (bat_scoreboard, pit_scoreboard) = self.batting_pitching(&inning);
 
+            let mut cs_outs = 0;
             if outs < 2 {
                 if let Some((sb, runner_id)) = Self::check_for_sb(bat_scoreboard, players, rng) {
                     if sb {
@@ -453,8 +454,7 @@ impl Game {
                     } else {
                         bat_scoreboard.onbase[1] = None;
                         Self::record_stat(&mut boxscore, runner_id, Stat::Bcs, None);
-                        outs += 1;
-                        virtual_outs += 1;
+                        cs_outs = 1;
                     }
                 }
             }
@@ -562,8 +562,9 @@ impl Game {
                     add_outs
                 }
             };
-
             Self::record_stat(&mut boxscore, batter_id, result.to_batting_stat(result_outs), box_target);
+
+            let new_outs = result_outs + cs_outs;
 
             if result != Expect::Error {
                 for _ in &bat_scoreboard.runs_in {
@@ -596,10 +597,10 @@ impl Game {
 
             let mut pit_scoreboard = self.pitching(&inning);
             pit_scoreboard.pitches += pitches;
-            pit_scoreboard.pitcher_outs += result_outs;
+            pit_scoreboard.pitcher_outs += new_outs;
 
-            outs += result_outs;
-            virtual_outs += result_outs;
+            outs += new_outs;
+            virtual_outs += new_outs;
             if result == Expect::Error {
                 virtual_outs += 1;
             }
