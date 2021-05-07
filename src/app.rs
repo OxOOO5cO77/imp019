@@ -390,7 +390,7 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
     mode
 }
 
-const BATTING_HEADERS: [Stat; 17] = [
+const BATTING_HEADERS: [Stat; 19] = [
     Stat::G,
     Stat::Gs,
     Stat::Bpa,
@@ -403,6 +403,8 @@ const BATTING_HEADERS: [Stat; 17] = [
     Stat::Bhbp,
     Stat::Bso,
     Stat::Bgidp,
+    Stat::Bsb,
+    Stat::Bcs,
     Stat::Br,
     Stat::Brbi,
     Stat::Bavg,
@@ -742,6 +744,8 @@ impl epi::App for Imp019App {
                                 Stat::Bhbp => format!("{} is hit by pitch.", player_str),
                                 Stat::Bso => format!("{} strikes out.", player_str),
                                 Stat::Bgidp => format!("{} grounds into double play.", player_str),
+                                Stat::Bsb => format!("{} steals second.", player_str),
+                                Stat::Bcs => format!("{} is thrown out stealing.", player_str),
                                 Stat::Bo => if error {
                                     format!("{} reaches on error{}.", player_str, target_str)
                                 } else {

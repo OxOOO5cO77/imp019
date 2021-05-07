@@ -403,6 +403,12 @@ impl Player {
         rng.gen_bool(*self.bat_expect.0.get(&Expect::Error).unwrap())
     }
 
+    pub(crate) fn check_for_sb(&self, rng: &mut ThreadRng) -> bool {
+        let triple = (*self.bat_expect.0.get(&Expect::Triple).unwrap() * 10.0) - 0.25;
+        let sb_pct = (0.7 + (triple * 0.20) + (triple * 0.20) + (triple * 0.20)).clamp(0.0, 1.0);
+        rng.gen_bool(sb_pct)
+    }
+
     pub(crate) fn new(data: &Data, pos: &Position, year: u32, rng: &mut ThreadRng) -> Self {
         let name_first = data.choose_name_first(rng);
         let name_last = data.choose_name_last(rng);

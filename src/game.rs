@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use lazy_static::lazy_static;
-
-use crate::player::{Expect, ExpectMap, PlayerId, Position, PlayerMap, Handedness, Player};
-use crate::team::{TeamId, TeamMap};
-use crate::stat::Stat;
-use rand::rngs::ThreadRng;
 use rand::Rng;
-use rand::seq::{SliceRandom, IteratorRandom};
+use rand::rngs::ThreadRng;
+use rand::seq::{IteratorRandom, SliceRandom};
+
+use crate::player::{Expect, ExpectMap, Handedness, Player, PlayerId, PlayerMap, Position};
+use crate::stat::Stat;
+use crate::team::{TeamId, TeamMap};
 use crate::util::gen_gamma;
 
 lazy_static! {
@@ -27,7 +27,7 @@ lazy_static! {
 
 #[derive(Copy, Clone, Default)]
 struct RunnerInfo {
-    runner: PlayerId,
+    id: PlayerId,
     pitcher: PlayerId,
     earned: bool,
 }
@@ -88,7 +88,7 @@ impl Scoreboard {
 
 
     fn advance_batter(&mut self, batter: PlayerId, pitcher: PlayerId, earned: bool, amt: usize) {
-        self.onbase[0] = Some(RunnerInfo { runner: batter, pitcher, earned });
+        self.onbase[0] = Some(RunnerInfo { id: batter, pitcher, earned });
         for idx in 0..amt {
             self.advance_onbase(idx);
         }
@@ -264,6 +264,20 @@ impl Game {
         }
     }
 
+    fn check_for_sb(bat_scoreboard: &Scoreboard, players: &PlayerMap, rng: &mut ThreadRng) -> Option<(bool, PlayerId)> {
+        if bat_scoreboard.onbase[2].is_none() {
+            if let Some(runner) = bat_scoreboard.onbase[1] {
+                let player = players.get(&runner.id).unwrap();
+                let attempt = player.check_for_sb(rng) && player.check_for_sb(rng) && player.check_for_sb(rng);
+                if attempt {
+                    let success = player.check_for_sb(rng) || (player.check_for_sb(rng) && player.check_for_sb(rng));
+                    return Some((success, runner.id));
+                }
+            }
+        }
+        None
+    }
+
     fn max_pitches_for_pos(pos: Position) -> u32 {
         match pos {
             Position::StartingPitcher => 110,
@@ -289,7 +303,7 @@ impl Game {
         let pitch_max = Self::max_pitches_for_pos(cur_pitching);
 
         let run_diff = pit_r - bat_r;
-        let save_threat = ( on_base + 2 - run_diff ) >= 0;
+        let save_threat = (on_base + 2 - run_diff) >= 0;
         let save_situation = save_threat || (run_diff > 0 && run_diff <= 3);
 
         let mut used_pitchers = pit_scoreboard.pitcher_record.iter().map(|o| o.pitcher).collect::<Vec<_>>();
@@ -425,11 +439,25 @@ impl Game {
                 inning.half = InningHalf::Top;
                 continue;
             }
-            let earned = virtual_outs < 3;
 
             self.sub_pitcher(&inning, teams, players, &mut boxscore, rng);
 
+
             let (bat_scoreboard, pit_scoreboard) = self.batting_pitching(&inning);
+
+            if outs < 2 {
+                if let Some((sb, runner_id)) = Self::check_for_sb(bat_scoreboard, players, rng) {
+                    if sb {
+                        bat_scoreboard.advance_onbase(1);
+                        Self::record_stat(&mut boxscore, runner_id, Stat::Bsb, None);
+                    } else {
+                        bat_scoreboard.onbase[1] = None;
+                        Self::record_stat(&mut boxscore, runner_id, Stat::Bcs, None);
+                        outs += 1;
+                        virtual_outs += 1;
+                    }
+                }
+            }
 
             let pitcher_id = pit_scoreboard.pitcher;
             let pitcher = players.get(&pitcher_id).unwrap();
@@ -450,6 +478,8 @@ impl Game {
             let mut pitches = gen_gamma(rng, pitch_avg, 1.0).round().max(1.0) as u32;
 
             let mut box_target = None;
+
+            let earned = virtual_outs < 3;
 
             let result_outs = match result {
                 Expect::Single => {
@@ -490,7 +520,7 @@ impl Game {
                 Expect::HitByPitch => {
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
                     0
-                },
+                }
                 Expect::Error => {
                     box_target = Some(target);
                     Self::record_stat(&mut boxscore, fielder_id, Stat::Fe, None);
@@ -546,7 +576,7 @@ impl Game {
             }
 
             for runner in &bat_scoreboard.runs_in {
-                Self::record_stat(&mut boxscore, runner.runner, Stat::Br, None);
+                Self::record_stat(&mut boxscore, runner.id, Stat::Br, None);
                 if runner.earned {
                     Self::record_stat(&mut boxscore, runner.pitcher, Stat::Per, None);
                 } else {
@@ -619,7 +649,7 @@ mod tests {
         assert!(test.onbase[2].is_none());
         assert!(test.onbase[3].is_none());
 
-        test.onbase[0] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.onbase[0] = Some(RunnerInfo { id: 23, pitcher: 0, earned: true });
         test.advance_onbase(0);
         assert!(test.onbase[0].is_none());
         assert!(test.onbase[1].is_some());
@@ -646,10 +676,10 @@ mod tests {
         assert!(test.onbase[3].is_none());
         assert_eq!(test.runs_in.len(), 1);
 
-        test.onbase[0] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
-        test.onbase[1] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
-        test.onbase[2] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
-        test.onbase[3] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.onbase[0] = Some(RunnerInfo { id: 23, pitcher: 0, earned: true });
+        test.onbase[1] = Some(RunnerInfo { id: 23, pitcher: 0, earned: true });
+        test.onbase[2] = Some(RunnerInfo { id: 23, pitcher: 0, earned: true });
+        test.onbase[3] = Some(RunnerInfo { id: 23, pitcher: 0, earned: true });
         test.advance_onbase(0);
         assert!(test.onbase[0].is_none());
         assert!(test.onbase[1].is_some());
@@ -664,7 +694,7 @@ mod tests {
         assert!(test.onbase[3].is_some());
         assert_eq!(test.runs_in.len(), 3);
 
-        test.onbase[0] = Some(RunnerInfo { runner: 23, pitcher: 0, earned: true });
+        test.onbase[0] = Some(RunnerInfo { id: 23, pitcher: 0, earned: true });
         test.advance_onbase(0);
         assert!(test.onbase[0].is_none());
         assert!(test.onbase[1].is_some());

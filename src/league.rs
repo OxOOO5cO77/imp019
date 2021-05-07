@@ -72,7 +72,7 @@ impl League {
     }
 }
 
-pub(crate) const RECORD_STATS: [Stat; 16] = [
+pub(crate) const RECORD_STATS: [Stat; 17] = [
     Stat::Bhr,
     Stat::Br,
     Stat::Brbi,
@@ -81,6 +81,7 @@ pub(crate) const RECORD_STATS: [Stat; 16] = [
     Stat::B2b,
     Stat::B3b,
     Stat::Bbb,
+    Stat::Bsb,
     Stat::Bavg,
     Stat::Bobp,
     Stat::Bslg,
