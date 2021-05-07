@@ -251,7 +251,7 @@ fn for_each_event<T>(game: &Game, mut action: T) where T: FnMut(usize, bool, &Ga
             outs += 1;  // add the second out below
         }
 
-        if matches!( event.event, Stat::Bo | Stat::Bso | Stat::Bgidp ) {
+        if matches!( event.event, Stat::Bo | Stat::Bso | Stat::Bgidp | Stat::Bcs) {
             if !error {
                 outs += 1;
             }
@@ -724,12 +724,10 @@ impl epi::App for Imp019App {
                                 previnn = inning;
                             }
 
-
                             if pitching_change {
                                 ui.label(format!("{} is now pitching.", player_str));
                                 return;
                             }
-
 
                             let target_str = if let Some(target) = event.target {
                                 format!(" to {}", target)
@@ -737,27 +735,28 @@ impl epi::App for Imp019App {
                                 "".to_string()
                             };
 
-                            let label_str = match event.event {
-                                Stat::B1b => format!("{} singles{}.", player_str, target_str),
-                                Stat::B2b => format!("{} doubles{}.", player_str, target_str),
-                                Stat::B3b => format!("{} triples{}.", player_str, target_str),
-                                Stat::Bhr => format!("{} homers{}.", player_str, target_str),
-                                Stat::Bbb => format!("{} walks.", player_str),
-                                Stat::Bhbp => format!("{} is hit by pitch.", player_str),
-                                Stat::Bso => format!("{} strikes out.", player_str),
-                                Stat::Bgidp => format!("{} grounds into double play.", player_str),
-                                Stat::Bsb => format!("{} steals second.", player_str),
-                                Stat::Bcs => format!("{} is thrown out stealing.", player_str),
+                            let result_str = match event.event {
+                                Stat::B1b => " singles",
+                                Stat::B2b => " doubles",
+                                Stat::B3b => " triples",
+                                Stat::Bhr => " homers",
+                                Stat::Bbb => " walks",
+                                Stat::Bibb => " intentionally walked",
+                                Stat::Bhbp => " is hit by pitch",
+                                Stat::Bso => " strikes out",
+                                Stat::Bgidp => " grounds into double play",
+                                Stat::Bsb => " steals second",
+                                Stat::Bcs => " is thrown out stealing",
                                 Stat::Bo => if error {
-                                    format!("{} reaches on error{}.", player_str, target_str)
+                                    " reaches on error"
                                 } else {
-                                    format!("{} flies out{}.", player_str, target_str)
+                                    " flies out"
                                 },
-                                Stat::Br => format!("{} scores.", player_str),
-                                _ => "".to_string()
+                                Stat::Br => " scores",
+                                _ => ""
                             };
 
-                            ui.label(label_str);
+                            ui.label(format!("{}{}{}.", player_str, result_str, target_str));
                         });
                     });
 
