@@ -25,6 +25,65 @@ lazy_static! {
     };
 }
 
+#[derive(PartialEq)]
+pub(crate) enum PaResult {
+    Single,
+    Double,
+    Triple,
+    HomeRun,
+    Walk,
+    IntentionalWalk,
+    HitByPitch,
+    Strikeout,
+    Out,
+    Error,
+}
+
+impl PaResult {
+    fn from(expect: Expect ) -> Self {
+        match expect {
+            Expect::Single => PaResult::Single,
+            Expect::Double => PaResult::Double,
+            Expect::Triple => PaResult::Triple,
+            Expect::HomeRun => PaResult::HomeRun,
+            Expect::Walk => PaResult::Walk,
+            Expect::HitByPitch => PaResult::HitByPitch,
+            Expect::Strikeout => PaResult::Strikeout,
+            Expect::Out => PaResult::Out,
+        }
+    }
+
+    pub(crate) fn to_batting_stat(&self, outs: u8) -> Stat {
+        match self {
+            Self::Single => Stat::B1b,
+            Self::Double => Stat::B2b,
+            Self::Triple => Stat::B3b,
+            Self::HomeRun => Stat::Bhr,
+            Self::Walk => Stat::Bbb,
+            Self::IntentionalWalk => Stat::Bibb,
+            Self::HitByPitch => Stat::Bhbp,
+            Self::Strikeout => Stat::Bso,
+            Self::Out => if outs == 1 { Stat::Bo } else { Stat::Bgidp }
+            Self::Error => Stat::Bo,
+        }
+    }
+    pub(crate) fn to_pitching_stat(&self) -> Option<Stat> {
+        match self {
+            Self::Single => Some(Stat::P1b),
+            Self::Double => Some(Stat::P2b),
+            Self::Triple => Some(Stat::P3b),
+            Self::HomeRun => Some(Stat::Phr),
+            Self::Walk => Some(Stat::Pbb),
+            Self::IntentionalWalk => Some(Stat::Pibb),
+            Self::HitByPitch => Some(Stat::Phbp),
+            Self::Strikeout => Some(Stat::Pso),
+            Self::Out => Some(Stat::Po),
+            Self::Error => None,
+        }
+    }
+}
+
+
 #[derive(Copy, Clone, Default)]
 struct RunnerInfo {
     id: PlayerId,
@@ -255,10 +314,10 @@ impl Game {
         if self.is_away_ab(inning) { &mut self.home } else { &mut self.away }
     }
 
-    fn check_for_error(players: &PlayerMap, fielder_id: PlayerId, result: Expect, rng: &mut ThreadRng) -> Expect {
+    fn check_for_error(players: &PlayerMap, fielder_id: PlayerId, result: PaResult, rng: &mut ThreadRng) -> PaResult {
         let fielder = players.get(&fielder_id).unwrap();
-        if result == Expect::Out && fielder.check_for_e(rng) {
-            Expect::Error
+        if result == PaResult::Out && fielder.check_for_e(rng) {
+            PaResult::Error
         } else {
             result
         }
@@ -468,21 +527,34 @@ impl Game {
             let batter_expect = batter.bat_expect_vs(pitcher.throws);
             let pitcher_expect = pitcher.pit_expect_vs(batter.bats);
 
-            let result = Self::get_expected_pa(batter_expect, pitcher_expect, rng);
-            let target = Player::determine_spray(&batter.bat_spray, &pitcher.pit_spray, &result, rng);
+            let pitch_avg = (batter.patience + pitcher.control) / 2.0;
+            let mut pitches = gen_gamma(rng, pitch_avg, 1.0).round().max(1.0) as u32;
+
+            let expect = Self::get_expected_pa(batter_expect, pitcher_expect, rng);
+            let mut result = PaResult::from(expect);
+
+            let mut ibb_cond = inning.number > 6;
+            ibb_cond = ibb_cond && outs == 1;
+            ibb_cond = ibb_cond && bat_scoreboard.onbase[1].is_none();
+            ibb_cond = ibb_cond && bat_scoreboard.onbase[2].is_some();
+            ibb_cond = ibb_cond && ( batter_expect.get(&Expect::HomeRun).unwrap() * 0.7 ) > *LEAGUE_AVG.get(&Expect::HomeRun).unwrap();
+
+            if ibb_cond {
+                result = PaResult::IntentionalWalk;
+                pitches = 0;
+            }
+
+            let target = Player::determine_spray(&batter.bat_spray, &pitcher.pit_spray, &expect, rng);
 
             let fielder_id = pit_scoreboard.player_at_pos(target);
             let result = Self::check_for_error(players, fielder_id, result, rng);
-
-            let pitch_avg = (batter.patience + pitcher.control) / 2.0;
-            let mut pitches = gen_gamma(rng, pitch_avg, 1.0).round().max(1.0) as u32;
 
             let mut box_target = None;
 
             let earned = virtual_outs < 3;
 
             let result_outs = match result {
-                Expect::Single => {
+                PaResult::Single => {
                     box_target = Some(target);
 
                     if target == Position::RightField {
@@ -494,45 +566,50 @@ impl Game {
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
                     0
                 }
-                Expect::Double => {
+                PaResult::Double => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 2);
                     0
                 }
-                Expect::Triple => {
+                PaResult::Triple => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 3);
                     0
                 }
-                Expect::HomeRun => {
+                PaResult::HomeRun => {
                     box_target = Some(target);
                     bat_scoreboard.h += 1;
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 4);
                     0
                 }
-                Expect::Walk => {
+                PaResult::Walk => {
                     pitches = pitches.max(4);
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
                     0
                 }
-                Expect::HitByPitch => {
+                PaResult::IntentionalWalk => {
+                    pitches = 0;
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
                     0
                 }
-                Expect::Error => {
+                PaResult::HitByPitch => {
+                    bat_scoreboard.advance_batter(batter_id, pitcher_id, earned, 1);
+                    0
+                }
+                PaResult::Error => {
                     box_target = Some(target);
                     Self::record_stat(&mut boxscore, fielder_id, Stat::Fe, None);
                     bat_scoreboard.e += 1;
                     bat_scoreboard.advance_batter(batter_id, pitcher_id, false, 1);
                     0
                 }
-                Expect::Strikeout => {
+                PaResult::Strikeout => {
                     pitches = pitches.max(3);
                     1
                 }
-                Expect::Out => {
+                PaResult::Out => {
                     box_target = Some(target);
 
                     let mut add_outs = 1;
@@ -566,7 +643,7 @@ impl Game {
 
             let new_outs = result_outs + cs_outs;
 
-            if result != Expect::Error {
+            if result != PaResult::Error {
                 for _ in &bat_scoreboard.runs_in {
                     Self::record_stat(&mut boxscore, batter_id, Stat::Brbi, None);
                 }
@@ -601,7 +678,7 @@ impl Game {
 
             outs += new_outs;
             virtual_outs += new_outs;
-            if result == Expect::Error {
+            if result == PaResult::Error {
                 virtual_outs += 1;
             }
             if outs >= 3 {

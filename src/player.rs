@@ -125,6 +125,7 @@ pub(crate) struct Player {
     pub(crate) bat_spray: SprayChart,
     pub(crate) pit_expect: (ExpectMap, ExpectMap),
     pub(crate) pit_spray: SprayChart,
+    pub(crate) error_rate: f64,
     pub(crate) patience: f64,
     pub(crate) control: f64,
     stat_stream: Vec<Stat>,
@@ -132,7 +133,7 @@ pub(crate) struct Player {
     pub(crate) fatigue: u16,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Expect {
     Single,
     Double,
@@ -142,36 +143,6 @@ pub(crate) enum Expect {
     HitByPitch,
     Strikeout,
     Out,
-    Error,
-}
-
-impl Expect {
-    pub(crate) fn to_batting_stat(&self, outs: u8) -> Stat {
-        match self {
-            Self::Single => Stat::B1b,
-            Self::Double => Stat::B2b,
-            Self::Triple => Stat::B3b,
-            Self::HomeRun => Stat::Bhr,
-            Self::Walk => Stat::Bbb,
-            Self::HitByPitch => Stat::Bhbp,
-            Self::Strikeout => Stat::Bso,
-            Self::Out => if outs == 1 { Stat::Bo } else { Stat::Bgidp }
-            Self::Error => Stat::Bo,
-        }
-    }
-    pub(crate) fn to_pitching_stat(&self) -> Option<Stat> {
-        match self {
-            Self::Single => Some(Stat::P1b),
-            Self::Double => Some(Stat::P2b),
-            Self::Triple => Some(Stat::P3b),
-            Self::HomeRun => Some(Stat::Phr),
-            Self::Walk => Some(Stat::Pbb),
-            Self::HitByPitch => Some(Stat::Phbp),
-            Self::Strikeout => Some(Stat::Pso),
-            Self::Out => Some(Stat::Po),
-            Self::Error => None,
-        }
-    }
 }
 
 struct ExpectRaw {
@@ -183,7 +154,6 @@ struct ExpectRaw {
     bb: f64,
     hbp: f64,
     so: f64,
-    e: f64,
 }
 
 impl Player {
@@ -198,7 +168,6 @@ impl Player {
 
         let so = expect_pct.so;
         let o = 1.0 - expect_pct.target_obp - so;
-        let e = expect_pct.e;
 
         let mut expect = HashMap::new();
         expect.insert(Expect::Single, h1b);
@@ -209,7 +178,6 @@ impl Player {
         expect.insert(Expect::HitByPitch, hbp);
         expect.insert(Expect::Strikeout, so);
         expect.insert(Expect::Out, o);
-        expect.insert(Expect::Error, e);
 
         expect
     }
@@ -224,7 +192,6 @@ impl Player {
         let bb = gen_gamma(rng, 8.34381266257955, 7.16855765752819);
         let hbp = gen_gamma(rng, 18.8629868507638, 0.404463971747468);
         let so = gen_normal(rng, 0.1914556061, 0.02597102753);
-        let e = 1.0 - gen_normal(rng, 0.9765828221, 0.03).clamp(0.0, 1.0);
 
         let expect = ExpectRaw {
             target_obp,
@@ -235,7 +202,6 @@ impl Player {
             bb,
             hbp,
             so,
-            e,
         };
 
         Self::generate_expect(expect)
@@ -261,7 +227,6 @@ impl Player {
             bb,
             hbp,
             so,
-            e: 0.0,
         };
 
         Self::generate_expect(expect)
@@ -400,7 +365,7 @@ impl Player {
     }
 
     pub(crate) fn check_for_e(&self, rng: &mut ThreadRng) -> bool {
-        rng.gen_bool(*self.bat_expect.0.get(&Expect::Error).unwrap())
+        rng.gen_bool(self.error_rate)
     }
 
     pub(crate) fn check_for_sb(&self, rng: &mut ThreadRng) -> bool {
@@ -437,6 +402,7 @@ impl Player {
         let bat_spray = Self::generate_bat_spray(rng, pos);
         let pit_spray = Self::generate_pit_spray(rng, pos);
 
+        let error_rate = 1.0 - gen_normal(rng, 0.9765828221, 0.03).clamp(0.0, 1.0);
         let patience = gen_gamma(rng, 4.5, 1.0).round().max(1.0);
         let control = gen_gamma(rng, 18.0, 0.2195).round().max(1.0);
 
@@ -453,6 +419,7 @@ impl Player {
             bat_spray,
             pit_expect,
             pit_spray,
+            error_rate,
             patience,
             control,
             stat_stream: vec![],

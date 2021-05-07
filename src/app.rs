@@ -390,7 +390,7 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
     mode
 }
 
-const BATTING_HEADERS: [Stat; 19] = [
+const BATTING_HEADERS: [Stat; 20] = [
     Stat::G,
     Stat::Gs,
     Stat::Bpa,
@@ -400,6 +400,7 @@ const BATTING_HEADERS: [Stat; 19] = [
     Stat::B3b,
     Stat::Bhr,
     Stat::Bbb,
+    Stat::Bibb,
     Stat::Bhbp,
     Stat::Bso,
     Stat::Bgidp,
@@ -412,7 +413,7 @@ const BATTING_HEADERS: [Stat; 19] = [
     Stat::Bslg,
 ];
 
-const PITCHING_HEADERS: [Stat; 24] = [
+const PITCHING_HEADERS: [Stat; 25] = [
     Stat::G,
     Stat::Pw,
     Stat::Pl,
@@ -428,6 +429,7 @@ const PITCHING_HEADERS: [Stat; 24] = [
     Stat::P3b,
     Stat::Phr,
     Stat::Pbb,
+    Stat::Pibb,
     Stat::Phbp,
     Stat::Pso,
     Stat::Pr,

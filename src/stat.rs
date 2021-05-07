@@ -15,6 +15,7 @@ pub(crate) enum Stat {
     B3b,
     Bhr,
     Bbb,
+    Bibb,
     Bhbp,
     Bso,
     Bo,
@@ -36,6 +37,7 @@ pub(crate) enum Stat {
     P3b,
     Phr,
     Pbb,
+    Pibb,
     Phbp,
     Po,
     Pso,
@@ -63,7 +65,7 @@ pub(crate) enum Stat {
 
 impl Stat {
     pub(crate) fn is_batting(&self) -> bool {
-        matches!(self, Stat::B1b | Stat::B2b | Stat::B3b | Stat::Bhr | Stat::Bbb | Stat::Bhbp | Stat::Bso | Stat::Bo | Stat::Bgidp | Stat::Bsb | Stat::Bcs | Stat::Br | Stat::Brbi | Stat::Bh | Stat::Bab | Stat::Bpa | Stat::Bavg | Stat::Bobp | Stat::Bslg)
+        matches!(self, Stat::B1b | Stat::B2b | Stat::B3b | Stat::Bhr | Stat::Bbb | Stat::Bibb | Stat::Bhbp | Stat::Bso | Stat::Bo | Stat::Bgidp | Stat::Bsb | Stat::Bcs | Stat::Br | Stat::Brbi | Stat::Bh | Stat::Bab | Stat::Bpa | Stat::Bavg | Stat::Bobp | Stat::Bslg)
     }
 
     pub(crate) fn value(&self, val: u32) -> String {
@@ -117,6 +119,7 @@ impl Display for Stat {
             Stat::B3b => "3B",
             Stat::Bhr => "HR",
             Stat::Bbb => "BB",
+            Stat::Bibb => "IBB",
             Stat::Bhbp => "HBP",
             Stat::Bso => "SO",
             Stat::Bo => "O",
@@ -136,6 +139,7 @@ impl Display for Stat {
             Stat::P3b => "3B",
             Stat::Phr => "HR",
             Stat::Pbb => "BB",
+            Stat::Pibb => "IBB",
             Stat::Phbp => "HBP",
             Stat::Po => "IP",
             Stat::Pso => "SO",
@@ -171,6 +175,7 @@ pub(crate) struct Stats {
     pub(crate) b_3b: u32,
     pub(crate) b_hr: u32,
     pub(crate) b_bb: u32,
+    pub(crate) b_ibb: u32,
     pub(crate) b_hbp: u32,
     pub(crate) b_r: u32,
     pub(crate) b_rbi: u32,
@@ -191,6 +196,7 @@ pub(crate) struct Stats {
     pub(crate) p_3b: u32,
     pub(crate) p_hr: u32,
     pub(crate) p_bb: u32,
+    pub(crate) p_ibb: u32,
     pub(crate) p_hbp: u32,
     pub(crate) p_r: u32,
     pub(crate) p_er: u32,
@@ -225,6 +231,7 @@ impl Stats {
             Stat::B3b => self.b_3b,
             Stat::Bhr => self.b_hr,
             Stat::Bbb => self.b_bb,
+            Stat::Bibb => self.b_ibb,
             Stat::Bhbp => self.b_hbp,
             Stat::Bso => self.b_so,
             Stat::Bo => self.b_o,
@@ -244,6 +251,7 @@ impl Stats {
             Stat::P3b => self.p_3b,
             Stat::Phr => self.p_hr,
             Stat::Pbb => self.p_bb,
+            Stat::Pibb => self.p_ibb,
             Stat::Phbp => self.p_hbp,
             Stat::Pso => self.p_so,
             Stat::Po => self.p_o,
@@ -331,6 +339,10 @@ impl Stats {
                 Stat::B3b => stats.b_3b += 1,
                 Stat::Bhr => stats.b_hr += 1,
                 Stat::Bbb => stats.b_bb += 1,
+                Stat::Bibb => {
+                    stats.b_ibb += 1;
+                    stats.b_bb += 1
+                },
                 Stat::Bhbp => stats.b_hbp += 1,
                 Stat::Bso => {
                     stats.b_so += 1;
@@ -350,6 +362,10 @@ impl Stats {
                 Stat::P3b => stats.p_3b += 1,
                 Stat::Phr => stats.p_hr += 1,
                 Stat::Pbb => stats.p_bb += 1,
+                Stat::Pibb => {
+                    stats.p_ibb += 1;
+                    stats.p_bb += 1
+                },
                 Stat::Phbp => stats.p_hbp += 1,
                 Stat::Pso => {
                     stats.p_so += 1;
@@ -396,6 +412,7 @@ impl HistoricalStats {
             b_3b: *self.stats.get(&Stat::B3b).unwrap_or(&0),
             b_hr: *self.stats.get(&Stat::Bhr).unwrap_or(&0),
             b_bb: *self.stats.get(&Stat::Bbb).unwrap_or(&0),
+            b_ibb: *self.stats.get(&Stat::Bibb).unwrap_or(&0),
             b_hbp: *self.stats.get(&Stat::Bhbp).unwrap_or(&0),
             b_so: *self.stats.get(&Stat::Bso).unwrap_or(&0),
             b_o: *self.stats.get(&Stat::Bo).unwrap_or(&0),
@@ -409,6 +426,7 @@ impl HistoricalStats {
             p_3b: *self.stats.get(&Stat::P3b).unwrap_or(&0),
             p_hr: *self.stats.get(&Stat::Phr).unwrap_or(&0),
             p_bb: *self.stats.get(&Stat::Pbb).unwrap_or(&0),
+            p_ibb: *self.stats.get(&Stat::Pibb).unwrap_or(&0),
             p_hbp: *self.stats.get(&Stat::Phbp).unwrap_or(&0),
             p_so: *self.stats.get(&Stat::Pso).unwrap_or(&0),
             p_o: *self.stats.get(&Stat::Po).unwrap_or(&0),
