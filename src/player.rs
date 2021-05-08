@@ -114,8 +114,8 @@ type SprayChart = HashMap<Expect, HashMap<Position, u32>>;
 
 pub(crate) struct Player {
     pub(crate) active: bool,
-    name_first: String,
-    name_last: String,
+    name_first: &'static str,
+    name_last: &'static str,
     pub(crate) birthplace: String,
     pub(crate) born: u32,
     pub(crate) pos: Position,
@@ -375,9 +375,9 @@ impl Player {
     }
 
     pub(crate) fn new(data: &Data, pos: &Position, year: u32, rng: &mut ThreadRng) -> Self {
-        let name_first = data.choose_name_first(rng);
-        let name_last = data.choose_name_last(rng);
-        let birthplace = data.choose_location(rng);
+        let loc_data = data.choose_location(rng);
+        let name_first = data.choose_name_first(loc_data.country, rng);
+        let name_last = data.choose_name_last(loc_data.country, rng);
 
         let age = 18 + gen_gamma(rng, 2.0, 3.0).round() as u32;
 
@@ -410,7 +410,7 @@ impl Player {
             active: true,
             name_first,
             name_last,
-            birthplace,
+            birthplace: format!("{}, {}, {}", loc_data.city, loc_data.state, loc_data.country),
             born: year - age,
             pos: *pos,
             bats: *bat_hand,
