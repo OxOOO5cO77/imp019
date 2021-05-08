@@ -343,7 +343,6 @@ Mercenaries
 Messengers
 Metalsmiths
 Millers
-Millers
 Miners
 Minstrels
 Moneylenders
