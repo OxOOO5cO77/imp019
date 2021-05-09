@@ -60,7 +60,7 @@ impl Position {
         )
     }
 
-    pub(crate) fn is_oufield(&self) -> bool {
+    pub(crate) fn is_outfield(&self) -> bool {
         matches!(self,
             Position::LeftField |
             Position::CenterField |

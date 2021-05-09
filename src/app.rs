@@ -70,9 +70,9 @@ impl Imp019App {
         let mut teams = HashMap::new();
         teams.reserve(60);
         for team_id in 0..60 {
-            let (abbr, city, state) = locs[team_id].clone();
+            let loc = locs[team_id].clone();
             let nick = nicks[team_id].clone();
-            let mut team = Team::new(abbr, city, state, nick, year);
+            let mut team = Team::new(loc, nick, year);
 
             team.populate(&mut available, &players);
 
@@ -137,22 +137,22 @@ fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) -> bool {
             }
             ui.horizontal(|ui| {
                 if complete {
-                    ui.monospace(&away_team.abbr);
+                    ui.monospace(away_team.abbr());
                     ui.monospace(format!("{:3}", game.away.r));
                     ui.monospace(format!("{:3}", game.away.h));
                     ui.monospace(format!("{:3}", game.away.e));
                 } else {
-                    ui.monospace(format!("  {}", away_team.abbr));
+                    ui.monospace(format!("  {}", away_team.abbr()));
                 }
             });
             ui.horizontal(|ui| {
                 if complete {
-                    ui.monospace(&home_team.abbr);
+                    ui.monospace(home_team.abbr());
                     ui.monospace(format!("{:3}", game.home.r));
                     ui.monospace(format!("{:3}", game.home.h));
                     ui.monospace(format!("{:3}", game.home.e));
                 } else {
-                    ui.monospace(format!("@ {}", home_team.abbr));
+                    ui.monospace(format!("@ {}", home_team.abbr()));
                 }
             });
             clicked = complete && ui.button("Box Score").clicked();
@@ -163,7 +163,7 @@ fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) -> bool {
 }
 
 fn display_bo(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
-    ui.label(format!("{} {} Batters", team.abbr, team.nickname));
+    ui.label(format!("{} {} Batters", team.abbr(), team.nickname));
 
     const HEADERS: [Stat; 6] = [
         Stat::Bab,
@@ -200,7 +200,7 @@ fn display_bo(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &Playe
 }
 
 fn display_pitching(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
-    ui.label(format!("{} {} Pitchers", team.abbr, team.nickname));
+    ui.label(format!("{} {} Pitchers", team.abbr(), team.nickname));
 
     const HEADERS: [Stat; 7] = [
         Stat::Po,
@@ -315,7 +315,7 @@ fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[Histori
 
         ui.label(format!("{}", history.year));
         ui.label(format!("{}", history.league));
-        ui.label(&team.abbr);
+        ui.label(team.abbr());
         for header in headers {
             ui.label(header.value(stats.get_stat(*header)));
         }
@@ -359,7 +359,7 @@ fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &Leag
             if player.pos.is_pitcher() != is_batter {
                 let stats = player.get_stats();
                 if result.is_qualified(&stats, games) {
-                    all_players.push((&team.abbr, player, stats, player_id));
+                    all_players.push((team.abbr(), player, stats, player_id));
                 }
             }
         }
@@ -615,7 +615,7 @@ impl epi::App for Imp019App {
                         ui.monospace("  H");
                         ui.monospace("  E");
                         ui.end_row();
-                        ui.monospace(&awayteam.abbr);
+                        ui.monospace(awayteam.abbr());
                         for awayrun in awayruns.iter() {
                             ui.monospace(format!("{}", awayrun));
                         }
@@ -623,7 +623,7 @@ impl epi::App for Imp019App {
                         ui.monospace(format!("{:3}", game.away.h));
                         ui.monospace(format!("{:3}", game.away.e));
                         ui.end_row();
-                        ui.monospace(&hometeam.abbr);
+                        ui.monospace(hometeam.abbr());
                         for homerun in homeruns.iter() {
                             ui.monospace(format!("{}", homerun));
                         }
@@ -784,7 +784,7 @@ impl epi::App for Imp019App {
                         for team_id in teams.iter() {
                             let team = self.team_map.get(*team_id).unwrap();
                             ui.label(format!("{}", rank));
-                            ui.label(team.abbr.as_str());
+                            ui.label(team.abbr());
                             if ui.add(Button::new(team.name()).frame(false)).clicked() {
                                 mode = Mode::Team(*disp_league, **team_id);
                             }
@@ -950,7 +950,7 @@ impl epi::App for Imp019App {
                                             mode = Mode::Player(*disp_league, record.player_id, None);
                                         }
 
-                                        ui.small(format!("{} - {}", &team.abbr, record.year));
+                                        ui.small(format!("{} - {}", &team.abbr(), record.year));
                                     });
                                 });
 

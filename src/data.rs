@@ -3,8 +3,9 @@ use std::collections::{HashMap, HashSet};
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) struct LocData {
-    abbr: &'static str,
+    pub(crate) abbr: &'static str,
     pub(crate) city: &'static str,
     pub(crate) state: &'static str,
     pub(crate) country: &'static str,
@@ -80,14 +81,9 @@ impl Data {
         }
     }
 
-    pub(crate) fn get_locs(&self, existing: &mut HashSet<(String, String, String)>, rng: &mut ThreadRng, count: usize) -> Vec<(String, String, String)> {
+    pub(crate) fn get_locs(&self, existing: &mut HashSet<LocData>, rng: &mut ThreadRng, count: usize) -> Vec<LocData> {
         while existing.len() != count {
-            let loc = self.loc.choose(rng).unwrap();
-            let abbr = loc.abbr.to_owned();
-            let city = loc.city.to_owned();
-            let state = format!("{}-{}", loc.state, loc.country);
-
-            existing.insert((abbr, city, state));
+            existing.insert(self.loc.choose(rng).unwrap().clone());
         }
         existing.iter().cloned().collect()
     }

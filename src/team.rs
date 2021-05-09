@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use enum_iterator::IntoEnumIterator;
 
 use crate::player::{Player, PlayerId, PlayerMap, PlayerRefMap, Position};
+use crate::data::LocData;
 
 pub(crate) type TeamId = u64;
 pub(crate) type TeamMap = HashMap<TeamId, Team>;
@@ -46,9 +47,7 @@ pub(crate) struct History {
 }
 
 pub(crate) struct Team {
-    pub(crate) abbr: String,
-    city: String,
-    state: String,
+    pub(crate) loc: LocData,
     pub(crate) nickname: String,
     pub(crate) players: Vec<PlayerId>,
     pub(crate) rotation: [PlayerId; 5],
@@ -57,11 +56,9 @@ pub(crate) struct Team {
 }
 
 impl Team {
-    pub(crate) fn new(abbr: String, city: String, state: String, nickname: String, year: u32) -> Self {
+    pub(crate) fn new(loc: LocData, nickname: String, year: u32) -> Self {
         Self {
-            abbr,
-            city,
-            state,
+            loc,
             nickname,
             players: Vec::new(),
             rotation: [0, 0, 0, 0, 0],
@@ -72,9 +69,12 @@ impl Team {
             },
         }
     }
+    pub(crate) fn abbr(&self) -> &str {
+        self.loc.abbr
+    }
 
     pub(crate) fn name(&self) -> String {
-        format!("{} {} ({})", self.city, self.nickname, self.state)
+        format!("{} {} ({}-{})", self.loc.city, self.nickname, self.loc.state, self.loc.country)
     }
 
     pub(crate) fn results(&mut self, us: u8, them: u8) {
@@ -164,7 +164,7 @@ impl Team {
         let is_infield = |o: &&Player| o.pos.is_infield();
         self.fill_in(available, players, 6, &is_infield);
 
-        let is_outfield = |o: &&Player| o.pos.is_oufield();
+        let is_outfield = |o: &&Player| o.pos.is_outfield();
         self.fill_in(available, players, 4, &is_outfield);
 
         let pitchers = self.players.iter().filter(|o| players.get(o).unwrap().pos == Position::StartingPitcher).collect::<Vec<_>>();
