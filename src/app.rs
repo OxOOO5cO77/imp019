@@ -300,6 +300,16 @@ fn display_team_stats(ui: &mut Ui, is_batter: bool, headers: &[Stat], team_playe
     ret
 }
 
+fn display_historical_stat_row(ui: &mut Ui, headers: &[Stat], stats: &Stats, year: u32, league: u32, abbr: &str) {
+    ui.label(format!("{}", year));
+    ui.label(format!("{}", league));
+    ui.label(abbr);
+    for header in headers {
+        ui.label(header.value(stats.get_stat(*header)));
+    }
+    ui.end_row();
+}
+
 fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[HistoricalStats], teams: &TeamMap) {
     ui.label("Year");
     ui.label("League");
@@ -310,16 +320,9 @@ fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[Histori
     ui.end_row();
 
     for history in historical {
-        let stats = history.get_stats();
+        let stats = &history.stats;
         let team = teams.get(&history.team).unwrap();
-
-        ui.label(format!("{}", history.year));
-        ui.label(format!("{}", history.league));
-        ui.label(team.abbr());
-        for header in headers {
-            ui.label(header.value(stats.get_stat(*header)));
-        }
-        ui.end_row();
+        display_historical_stat_row(ui, headers, stats, history.year, history.league, team.abbr());
     }
 }
 
@@ -878,17 +881,17 @@ impl epi::App for Imp019App {
                     ui.label(format!("Bats: {}", player.bats));
                     ui.label(format!("Throws: {}", player.throws));
 
-                    if !player.pos.is_pitcher() {
-                        ui.heading("Batting History");
-                        egui::Grid::new("bhistory").striped(true).show(ui, |mut ui| {
-                            display_historical_stats(&mut ui, &BATTING_HEADERS, &player.historical, &self.team_map);
-                        });
-                    } else {
-                        ui.heading("Pitching History");
-                        egui::Grid::new("phistory").striped(true).show(ui, |mut ui| {
-                            display_historical_stats(&mut ui, &PITCHING_HEADERS, &player.historical, &self.team_map);
-                        });
-                    }
+                    ui.heading(if player.pos.is_pitcher() { "Pitching History" } else { "Batting History" });
+                    let headers = if player.pos.is_pitcher() { &PITCHING_HEADERS[..] } else { &BATTING_HEADERS[..] };
+                    egui::Grid::new("history").striped(true).show(ui, |mut ui| {
+                        display_historical_stats(&mut ui, headers, &player.historical, &self.team_map);
+                        let stats = player.get_stats();
+                        if stats.g > 0 {
+                            let team = self.team_map.iter().find(|kv| kv.1.players.contains(player_id)).unwrap();
+                            let league = self.leagues.iter().position(|o| o.teams.contains(team.0)).unwrap();
+                            display_historical_stat_row(&mut ui, headers, &stats, self.year, (league + 1) as u32, team.1.abbr());
+                        }
+                    });
 
                     mode
                 }

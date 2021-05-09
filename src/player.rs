@@ -451,10 +451,9 @@ impl Player {
             team: team_id,
             ..HistoricalStats::default()
         };
-        for stat in &self.stat_stream {
-            let val = historical.stats.entry(*stat).or_insert(0);
-            *val += 1;
-        }
+
+        historical.stats = Stats::compile_stats(&self.stat_stream);
+
         self.historical.push(historical);
 
         self.reset_stats()

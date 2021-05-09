@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 
@@ -399,51 +398,5 @@ pub(crate) struct HistoricalStats {
     pub(crate) year: u32,
     pub(crate) league: u32,
     pub(crate) team: TeamId,
-    pub(crate) stats: HashMap<Stat, u32>,
-}
-
-impl HistoricalStats {
-    pub(crate) fn get_stats(&self) -> Stats {
-        let stats = Stats {
-            g: *self.stats.get(&Stat::G).unwrap_or(&0),
-            gs: *self.stats.get(&Stat::Gs).unwrap_or(&0),
-            b_1b: *self.stats.get(&Stat::B1b).unwrap_or(&0),
-            b_2b: *self.stats.get(&Stat::B2b).unwrap_or(&0),
-            b_3b: *self.stats.get(&Stat::B3b).unwrap_or(&0),
-            b_hr: *self.stats.get(&Stat::Bhr).unwrap_or(&0),
-            b_bb: *self.stats.get(&Stat::Bbb).unwrap_or(&0),
-            b_ibb: *self.stats.get(&Stat::Bibb).unwrap_or(&0),
-            b_hbp: *self.stats.get(&Stat::Bhbp).unwrap_or(&0),
-            b_so: *self.stats.get(&Stat::Bso).unwrap_or(&0),
-            b_o: *self.stats.get(&Stat::Bo).unwrap_or(&0),
-            b_gidp: *self.stats.get(&Stat::Bgidp).unwrap_or(&0),
-            b_sb: *self.stats.get(&Stat::Bsb).unwrap_or(&0),
-            b_cs: *self.stats.get(&Stat::Bcs).unwrap_or(&0),
-            b_r: *self.stats.get(&Stat::Br).unwrap_or(&0),
-            b_rbi: *self.stats.get(&Stat::Brbi).unwrap_or(&0),
-            p_1b: *self.stats.get(&Stat::P1b).unwrap_or(&0),
-            p_2b: *self.stats.get(&Stat::P2b).unwrap_or(&0),
-            p_3b: *self.stats.get(&Stat::P3b).unwrap_or(&0),
-            p_hr: *self.stats.get(&Stat::Phr).unwrap_or(&0),
-            p_bb: *self.stats.get(&Stat::Pbb).unwrap_or(&0),
-            p_ibb: *self.stats.get(&Stat::Pibb).unwrap_or(&0),
-            p_hbp: *self.stats.get(&Stat::Phbp).unwrap_or(&0),
-            p_so: *self.stats.get(&Stat::Pso).unwrap_or(&0),
-            p_o: *self.stats.get(&Stat::Po).unwrap_or(&0),
-            p_r: *self.stats.get(&Stat::Pr).unwrap_or(&0),
-            p_er: *self.stats.get(&Stat::Per).unwrap_or(&0),
-            p_w: *self.stats.get(&Stat::Pw).unwrap_or(&0),
-            p_l: *self.stats.get(&Stat::Pl).unwrap_or(&0),
-            p_sv: *self.stats.get(&Stat::Psv).unwrap_or(&0),
-            p_bs: *self.stats.get(&Stat::Pbs).unwrap_or(&0),
-            p_hld: *self.stats.get(&Stat::Phld).unwrap_or(&0),
-            p_cg: *self.stats.get(&Stat::Pcg).unwrap_or(&0),
-            p_sho: *self.stats.get(&Stat::Psho).unwrap_or(&0),
-            f_po: *self.stats.get(&Stat::Fpo).unwrap_or(&0),
-            f_e: *self.stats.get(&Stat::Fe).unwrap_or(&0),
-            ..Stats::default()
-        };
-
-        stats.calculate()
-    }
+    pub(crate) stats: Stats,
 }
