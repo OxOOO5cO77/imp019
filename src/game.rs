@@ -517,6 +517,7 @@ impl Game {
                     }
                 }
             }
+            let cs_outs = cs_outs;
 
             let pitcher_id = pit_scoreboard.pitcher;
             let pitcher = players.get(&pitcher_id).unwrap();
@@ -538,7 +539,6 @@ impl Game {
             ibb_cond = ibb_cond && bat_scoreboard.onbase[1].is_none();
             ibb_cond = ibb_cond && bat_scoreboard.onbase[2].is_some();
             ibb_cond = ibb_cond && ( batter_expect.get(&Expect::HomeRun).unwrap() * 0.7 ) > *LEAGUE_AVG.get(&Expect::HomeRun).unwrap();
-
             if ibb_cond {
                 result = PaResult::IntentionalWalk;
                 pitches = 0;
@@ -651,6 +651,12 @@ impl Game {
 
             if let Some(pitching_stat) = result.to_pitching_stat() {
                 Self::record_stat(&mut boxscore, pitcher_id, pitching_stat, None);
+                for _ in 0..cs_outs {
+                    Self::record_stat(&mut boxscore, pitcher_id, Stat::Po, None);
+                }
+                for _ in 1..result_outs {
+                    Self::record_stat(&mut boxscore, pitcher_id, Stat::Po, None);
+                }
             }
 
             for runner in &bat_scoreboard.runs_in {
