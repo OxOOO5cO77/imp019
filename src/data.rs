@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
@@ -10,6 +11,7 @@ pub(crate) struct LocData {
     pub(crate) state: &'static str,
     pub(crate) country: &'static str,
     population: u32,
+    lang: &'static str,
 //    coords: String,
 }
 
@@ -21,6 +23,7 @@ impl LocData {
         let state = parts.next().unwrap_or("");
         let country = parts.next().unwrap_or("");
         let population = parts.next().unwrap_or("").parse::<u32>().unwrap_or(0);
+        let lang = parts.next().unwrap_or("");
 //        let coords = parts.next().unwrap_or("").to_owned();
         Self {
             abbr,
@@ -28,14 +31,44 @@ impl LocData {
             state,
             country,
             population,
+            lang,
 //            coords,
+        }
+    }
+}
+
+#[derive(Clone, Eq)]
+pub(crate) struct NickData {
+    localized: HashMap<&'static str, &'static str>,
+}
+
+impl Hash for NickData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.localized.values().next().unwrap_or(&"").hash(state)
+    }
+}
+
+impl PartialEq for NickData {
+    fn eq(&self, other: &Self) -> bool {
+        self.localized.values().next().unwrap() == other.localized.values().next().unwrap()
+    }
+}
+
+impl NickData {
+    pub(crate) fn name(&self, location: &LocData) -> &'static str {
+        self.localized.get(location.lang).unwrap_or(&"")
+    }
+
+    fn parse(in_str: &'static str, headers: &[&'static str]) -> Self {
+        Self {
+            localized: in_str.split(',').zip(headers).map(|(nick, header)| (*header, nick)).collect::<HashMap<_, _>>()
         }
     }
 }
 
 pub(crate) struct Data {
     loc: Vec<LocData>,
-    nick: Vec<&'static str>,
+    nick: Vec<NickData>,
     names_first: HashMap<&'static str, Vec<(&'static str, u32)>>,
     names_last: HashMap<&'static str, Vec<(&'static str, u32)>>,
 }
@@ -62,7 +95,9 @@ fn weighted(in_str: &'static str) -> Option<(&'static str, u32)> {
 impl Data {
     pub(crate) fn new() -> Self {
         let loc = include_str!("../data/loc.txt").lines().map(|o| LocData::parse(o)).collect();
-        let nick = include_str!("../data/nick.txt").lines().collect();
+        let mut nick_raw = include_str!("../data/nick.txt").lines();
+        let headers = nick_raw.next().unwrap_or("EN").split(',').collect::<Vec<_>>();
+        let nick = nick_raw.map(|o| NickData::parse(o, &headers)).collect();
 
         let mut names_first = HashMap::new();
         names_first.insert("US", include_str!("../data/names_us_first.txt").lines().map(weighted).filter_map(|o| o).collect());
@@ -88,9 +123,9 @@ impl Data {
         existing.iter().cloned().collect()
     }
 
-    pub(crate) fn get_nicks(&self, nicks: &mut HashSet<String>, rng: &mut ThreadRng, count: usize) -> Vec<String> {
+    pub(crate) fn get_nicks(&self, nicks: &mut HashSet<NickData>, rng: &mut ThreadRng, count: usize) -> Vec<NickData> {
         while nicks.len() != count {
-            nicks.insert(self.nick.choose(rng).unwrap().to_string());
+            nicks.insert(self.nick.choose(rng).unwrap().clone());
         }
         nicks.iter().cloned().collect()
     }
@@ -131,5 +166,29 @@ mod tests {
         for idx in 1..abbr.len() {
             assert_ne!(abbr[idx - 1], abbr[idx]);
         }
+    }
+
+    #[test]
+    fn test_nick() {
+        let mut nick_raw = include_str!("../data/nick.txt").lines();
+        let headers = nick_raw.next().unwrap().split(',').collect::<Vec<_>>();
+        let nick = nick_raw.map(|o| o.split(',').collect::<Vec<_>>()).collect::<Vec<_>>();
+
+        for line in &nick {
+            assert_eq!(line.len(), headers.len())
+        }
+
+        let mut error = 0;
+        for header in 0..headers.len() {
+            let mut local = nick.iter().map(|o| o[header]).collect::<Vec<_>>();
+            local.sort_unstable();
+            for idx in 1..local.len() {
+                if local[idx - 1] == local[idx] {
+                    println!("{}: {}", headers[header], local[idx]);
+                    error += 1;
+                }
+            }
+        }
+        assert_eq!(error, 0, "{} duplicates found.", error);
     }
 }

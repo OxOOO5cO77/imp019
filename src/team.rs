@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use enum_iterator::IntoEnumIterator;
 
 use crate::player::{Player, PlayerId, PlayerMap, PlayerRefMap, Position};
-use crate::data::LocData;
+use crate::data::{LocData, NickData};
 
 pub(crate) type TeamId = u64;
 pub(crate) type TeamMap = HashMap<TeamId, Team>;
@@ -48,7 +48,7 @@ pub(crate) struct History {
 
 pub(crate) struct Team {
     pub(crate) loc: LocData,
-    pub(crate) nickname: String,
+    pub(crate) nick: NickData,
     pub(crate) players: Vec<PlayerId>,
     pub(crate) rotation: [PlayerId; 5],
     pub(crate) results: Results,
@@ -56,10 +56,10 @@ pub(crate) struct Team {
 }
 
 impl Team {
-    pub(crate) fn new(loc: LocData, nickname: String, year: u32) -> Self {
+    pub(crate) fn new(loc: LocData, nick: NickData, year: u32) -> Self {
         Self {
             loc,
-            nickname,
+            nick,
             players: Vec::new(),
             rotation: [0, 0, 0, 0, 0],
             results: Results::default(),
@@ -74,7 +74,11 @@ impl Team {
     }
 
     pub(crate) fn name(&self) -> String {
-        format!("{} {} ({}-{})", self.loc.city, self.nickname, self.loc.state, self.loc.country)
+        format!("{} {} ({}-{})", self.loc.city, self.nickname(), self.loc.state, self.loc.country)
+    }
+
+    pub(crate) fn nickname(&self) -> &str {
+        self.nick.name(&self.loc)
     }
 
     pub(crate) fn results(&mut self, us: u8, them: u8) {

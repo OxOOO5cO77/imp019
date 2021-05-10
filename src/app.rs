@@ -163,7 +163,7 @@ fn display_game(ui: &mut Ui, game: &Game, teams: &TeamMap) -> bool {
 }
 
 fn display_bo(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
-    ui.label(format!("{} {} Batters", team.abbr(), team.nickname));
+    ui.label(format!("{} {} Batters", team.abbr(), team.nickname()));
 
     const HEADERS: [Stat; 6] = [
         Stat::Bab,
@@ -200,7 +200,7 @@ fn display_bo(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &Playe
 }
 
 fn display_pitching(ui: &mut Ui, scoreboard: &Scoreboard, team: &Team, players: &PlayerMap, stat_map: &HashMap<PlayerId, Vec<Stat>>) {
-    ui.label(format!("{} {} Pitchers", team.abbr(), team.nickname));
+    ui.label(format!("{} {} Pitchers", team.abbr(), team.nickname()));
 
     const HEADERS: [Stat; 7] = [
         Stat::Po,
