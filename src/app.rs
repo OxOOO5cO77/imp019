@@ -988,9 +988,6 @@ impl epi::App for Imp019App {
         "imp019"
     }
 
-    fn initial_window_size(&self) -> Option<egui::Vec2> {
-        Some(self.max_size_points())
-    }
     fn max_size_points(&self) -> egui::Vec2 {
         egui::Vec2::new(2048.0, 1024.0)
     }
