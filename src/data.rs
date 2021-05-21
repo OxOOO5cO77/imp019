@@ -100,13 +100,13 @@ impl Data {
         let nick = nick_raw.map(|o| NickData::parse(o, &headers)).collect();
 
         let mut names_first = HashMap::new();
-        names_first.insert("US", include_str!("../data/names_us_first.txt").lines().map(weighted).filter_map(|o| o).collect());
-        names_first.insert("CA", include_str!("../data/names_ca_first.txt").lines().map(weighted).filter_map(|o| o).collect());
-        names_first.insert("MX", include_str!("../data/names_mx_first.txt").lines().map(weighted).filter_map(|o| o).collect());
+        names_first.insert("US", include_str!("../data/names_us_first.txt").lines().map(weighted).flatten().collect());
+        names_first.insert("CA", include_str!("../data/names_ca_first.txt").lines().map(weighted).flatten().collect());
+        names_first.insert("MX", include_str!("../data/names_mx_first.txt").lines().map(weighted).flatten().collect());
         let mut names_last = HashMap::new();
-        names_last.insert("US", include_str!("../data/names_us_last.txt").lines().map(weighted).filter_map(|o| o).collect());
-        names_last.insert("CA", include_str!("../data/names_ca_last.txt").lines().map(weighted).filter_map(|o| o).collect());
-        names_last.insert("MX", include_str!("../data/names_mx_last.txt").lines().map(weighted).filter_map(|o| o).collect());
+        names_last.insert("US", include_str!("../data/names_us_last.txt").lines().map(weighted).flatten().collect());
+        names_last.insert("CA", include_str!("../data/names_ca_last.txt").lines().map(weighted).flatten().collect());
+        names_last.insert("MX", include_str!("../data/names_mx_last.txt").lines().map(weighted).flatten().collect());
 
         Self {
             loc,
@@ -158,7 +158,7 @@ mod tests {
         let mut abbr = include_str!("../data/loc.txt")
             .lines()
             .map(|o| o.split(',').next())
-            .filter_map(|o| o)
+            .flatten()
             .collect::<Vec<_>>();
 
         abbr.sort_unstable();
