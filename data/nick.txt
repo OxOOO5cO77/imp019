@@ -20,11 +20,11 @@ Bees,Abejas,Abeilles
 Binturongs,Binturongs,Binturongs
 Birds,Aves,Oiseaux
 Bisons,Bisontes,Bisons
-Bluebirds,Pájaros Azules,Bluebirds
+Bluebirds,Pájaros Azules,Merles Bleus
 Boar,Jabali,Sanglier
 Bobcats,Linces,Bobcats
 Budgies,Periquitos,Perruches
-Buffalo,Búfalo,Buffle
+Buffalo,Búfalos,Buffles
 Butterflies,Mariposas,Papillons
 Camels,Camellos,Chameaux
 Capybara,Carpincho,Capybara
@@ -44,7 +44,7 @@ Choughs,Chovas,Choughs
 Coatis,Coatis,Coatis
 Cobras,Cobras,Cobras
 Cockroaches,Cucarachas,Cafards
-Cod,Bacalao,Morue
+Cod,Bacalaos,Morues
 Cormorants,Cormoranes,Cormorans
 Cougars,Pumas,Cougars
 Coyotes,Coyotes,Coyotes
@@ -55,7 +55,7 @@ Crocodiles,Cocodrilos,Crocodiles
 Crows,Cornejas,Corneilles
 Cuckoos,Cucos,Coucous
 Curlews,Zarapitos,Courlis
-Deer,Ciervo,Cerf
+Deer,Ciervos,Cerfs
 Dholes,Dholes,Dholes
 Dingos,Dingos,Dingos
 Dinosaurs,Dinosaurios,Dinosaures
@@ -73,7 +73,7 @@ Echidnas,Equidnas,Echidnas
 Eels,Anguilas,Anguilles
 Elands,Elands,Elands
 Elephants,Elefantes,Éléphants
-Elk,Venados,Wapiti
+Elk,Venados,Wapitis
 Emus,Emús,Émeus
 Falcons,Halcónes,Faucons
 Ferrets,Hurones,Furets
@@ -91,7 +91,7 @@ Genets,Genets,Genets
 Gerbils,Jerbos,Gerbilles
 Giraffes,Jirafas,Girafes
 Gnats,Jejénes,Moucherons
-Gnus,Gnus,Gnus
+Gnus,Ñus,Gnous
 Goats,Cabras,Chèvres
 Goldfinches,Jilgueros,Chardonnerets
 Goosanders,Goosanders,Goosanders
@@ -102,7 +102,7 @@ Grasshoppers,Saltamontes,Sauterelles
 Grouse,Queja,Grouse
 Guanacos,Guanacos,Guanacos
 Guinea Fowl,Gallina de Guinea,Pintade
-Guinea Pigs,Conejillos de indias,Cochons d'Inde
+Guinea Pigs,Conejillos de Indias,Cochons d'Inde
 Gulls,Gaviotas,Goélands
 Hamsters,Hámsters,Hamsters
 Hares,Liebres,Lièvre
@@ -119,23 +119,23 @@ Horses,Caballos,Chevaux
 Humans,Humanos,Humains
 Hummingbirds,Colibríes,Colibris
 Hyenas,Hienas,Hyènes
-Ibexes,Ibexes,Bouquetins
+Ibexes,Ibices,Bouquetins
 Ibis,Ibis,Ibis
 Iguanas,Iguanas,Iguanes
 Impalas,Impalas,Impalas
 Jackals,Chacales,Chacals
 Jaguars,Jaguares,Jaguars
-Jays,Jays,Jays
+Jays,Arrendajos,Geais
 Jellyfish,Medusa,Méduse
 Jerboas,Jerboas,Jerboas
 Kangaroos,Canguros,Kangourous
-Kingbirds,Kingbirds,Kingbirds
+Kingbirds,Pájaros Reyes,Oiseaux Royals
 Kingfishers,Martines Pescadores,Martins-Pêcheurs
 Kinkajous,Kinkajous,Kinkajous
 Kites,Cometas,Cerfs-Volants
 Koalas,Koalas,Koalas
 Kodkods,Kodkods,Kodkods
-Komodo Dragons,Dragones de Komodo,Dragon de Komodo
+Komodo Dragons,Dragones de Komodo,Dragons de Komodo
 Kookaburras,Kookaburras,Kookaburras
 Koupreys,Koupreys,Koupreys
 Kudus,Kudus,Kudus
@@ -151,7 +151,7 @@ Lizards,Lagartos,Lézards
 Llamas,Llamas,Lamas
 Lobsters,Bogavantes,Homards
 Locusts,Langostas,Criquets
-Lorises,Lorises,Lorises
+Lorises,Loris,Lorises
 Lice,Piojos,Poux
 Lynx,Lince,Lynx
 Lyrebirds,Aves Lira,Lyrebirds
@@ -195,7 +195,7 @@ Panthers,Panteras,Panthères
 Parrots,Loros,Perroquets
 Pandas,Pandas,Pandas
 Partridges,Perdices,Perdrix
-Peafowl,Pavo real,Paon
+Peafowl,Pavo Real,Paon
 Penguins,Pingüinos,Pingouins
 Pheasants,Faisanes,Faisans
 Pigs,Cerdos,Cochons
@@ -245,7 +245,7 @@ Snails,Caracoles,Escargots
 Snakes,Serpientes,Serpents
 Spiders,Arañas,Araignées
 Spoonbills,Espátulas,Spatules
-Squid,Calamar,Calamar
+Squid,Calamares,Calamars
 Squirrels,Ardillas,Écureuils
 Starlings,Estorninos,Étourneaux
 Stilts,Zancos,Échasses
@@ -269,8 +269,8 @@ Vultures,Buitres,Vautours
 Wallabies,Ualabíes,Wallabies
 Walruses,Morsas,Morses
 Wasps,Avispas,Guêpes
-Water Buffalo,Búfalo de Agua,Buffles d'Eau
-Waxwings,Waxwings,Waxwings
+Water Buffalo,Búfalos de Agua,Buffles d'Eau
+Waxwings,Alas de Cera,Jaseurs
 Weasels,Comadrejas,Belettes
 Whales,Ballenas,Baleines
 Wobbegongs,Wobbegongs,Wobbegongs
@@ -279,7 +279,7 @@ Wolverines,Glotones,Carcajous
 Wombats,Wombats,Wombats
 Woodpeckers,Pájaros Carpinteros,Pics
 Worms,Gusanos,Vers
-Wrens,Reyezuelos,Wrens
+Wrens,Reyezuelos,Troglodytes
 Yaks,Yaks,Yaks
 Zebras,Cebras,Zèbres
 Banshee,Banshee,Banshee
@@ -326,7 +326,7 @@ Fishmongers,Pescaderías,Poissonniers
 Foresters,Silvicultores,Forestiers
 Furriers,Peleteros,Fourreurs
 Gardeners,Jardineros,Jardiniers
-Glassblowers,Soplador de vidrio,Souffleurs
+Glassblowers,Soplador de Vidrio,Souffleurs
 Goldsmiths,Orfebres,Orfèvres
 Gravediggers,Sepultureros,Fossoyeurs
 Grocers,Tenderos,Épiciers
@@ -347,7 +347,7 @@ Minstrels,Juglares,Ménestrels
 Moneylenders,Prestamistas,Prêteurs
 Monks,Monjes,Moines
 Navigators,Navegantes,Navigateurs
-Padres,Padres,Padres
+Padres,Padres,Pères
 Pages,Paginas,Pages
 Painters,Pintores,Peintres
 Peddlers,Vendedores,Colporteurs
@@ -379,7 +379,7 @@ Tsunami,Tsunami,Tsunami
 Hail,Granizo,Saluer
 Wildfire,Fuego Fatuo,Incendies
 Reds,Rojos,Rouges
-Blues,Blues,Blues
+Blues,Azules,Bleus
 Emeralds,Esmeraldas,Émeraudes
 Diamonds,Diamantes,Diamants
 Rubies,Rubíes,Rubis
