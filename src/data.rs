@@ -45,11 +45,10 @@ pub(crate) struct AgeData {
 impl AgeData {
     fn parse( in_str: &'static str) -> Self {
         let mut parts = in_str.split(',');
-        let result = Self {
+        Self {
             age: parts.next().unwrap_or("").parse().unwrap_or(0),
             skew: parts.take(3).map(|o| o.parse().unwrap_or(0)).collect(),
-        };
-        result
+        }
     }
 }
 
@@ -112,19 +111,19 @@ fn weighted(in_str: &'static str) -> Option<(&'static str, u32)> {
 
 impl Data {
     pub(crate) fn new() -> Self {
-        let loc = include_str!("../data/loc.txt").lines().map(LocData::parse).collect();
-        let mut nick_raw = include_str!("../data/nick.txt").lines();
+        let loc = include_str!("../data/loc.csv").lines().map(LocData::parse).collect();
+        let mut nick_raw = include_str!("../data/nick.csv").lines();
         let headers = nick_raw.next().unwrap_or("EN").split(',').collect::<Vec<_>>();
         let nick = nick_raw.map(|o| NickData::parse(o, &headers)).collect();
 
         let mut names_first = HashMap::new();
-        names_first.insert("US", include_str!("../data/names_us_first.txt").lines().map(weighted).flatten().collect());
-        names_first.insert("CA", include_str!("../data/names_ca_first.txt").lines().map(weighted).flatten().collect());
-        names_first.insert("MX", include_str!("../data/names_mx_first.txt").lines().map(weighted).flatten().collect());
+        names_first.insert("US", include_str!("../data/names_us_first.csv").lines().map(weighted).flatten().collect());
+        names_first.insert("CA", include_str!("../data/names_ca_first.csv").lines().map(weighted).flatten().collect());
+        names_first.insert("MX", include_str!("../data/names_mx_first.csv").lines().map(weighted).flatten().collect());
         let mut names_last = HashMap::new();
-        names_last.insert("US", include_str!("../data/names_us_last.txt").lines().map(weighted).flatten().collect());
-        names_last.insert("CA", include_str!("../data/names_ca_last.txt").lines().map(weighted).flatten().collect());
-        names_last.insert("MX", include_str!("../data/names_mx_last.txt").lines().map(weighted).flatten().collect());
+        names_last.insert("US", include_str!("../data/names_us_last.csv").lines().map(weighted).flatten().collect());
+        names_last.insert("CA", include_str!("../data/names_ca_last.csv").lines().map(weighted).flatten().collect());
+        names_last.insert("MX", include_str!("../data/names_mx_last.csv").lines().map(weighted).flatten().collect());
 
         let age = include_str!("../data/age.csv").lines().map(AgeData::parse).collect();
 
@@ -176,7 +175,7 @@ impl Data {
 mod tests {
     #[test]
     fn test_abbr() {
-        let mut abbr = include_str!("../data/loc.txt")
+        let mut abbr = include_str!("../data/loc.csv")
             .lines()
             .map(|o| o.split(',').next())
             .flatten()
@@ -191,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_nick() {
-        let mut nick_raw = include_str!("../data/nick.txt").lines();
+        let mut nick_raw = include_str!("../data/nick.csv").lines();
         let headers = nick_raw.next().unwrap().split(',').collect::<Vec<_>>();
         let nick = nick_raw.map(|o| o.split(',').collect::<Vec<_>>()).collect::<Vec<_>>();
 
