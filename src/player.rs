@@ -7,7 +7,7 @@ use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
-use crate::data::Data;
+use crate::data::{Data, AgeData};
 use crate::stat::{HistoricalStats, Stat, Stats};
 use crate::team::TeamId;
 use crate::util::{gen_gamma, gen_normal};
@@ -133,7 +133,7 @@ pub(crate) struct Player {
     pub(crate) fatigue: u16,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, IntoEnumIterator)]
 pub(crate) enum Expect {
     Single,
     Double,
@@ -480,10 +480,37 @@ impl Player {
         age_factor as f64
     }
 
+    fn apply_age_to_value(cur: f64, other: f64, age_data: &AgeData, rng: &mut ThreadRng) -> f64 {
+        match age_data.skew.iter().zip(0..2).collect::<Vec<(_,_)>>().choose_weighted(rng, |o| o.1).unwrap().1 {
+            0 => f64::min(cur,other),
+            1 => cur,
+            2 => f64::max(cur,other),
+            _ => cur
+        }
+    }
+
+    fn apply_age_to_expect(expect_self: &mut ExpectMap, expect_other: &ExpectMap, age_data: &AgeData, rng: &mut ThreadRng) {
+        for expect in Expect::into_enum_iter() {
+            expect_self.insert(expect, Self::apply_age_to_value(expect_self[&expect], expect_other[&expect], age_data, rng ));
+        }
+    }
+
+    pub(crate) fn apply_age(&mut self, year: u32, data: &Data, rng: &mut ThreadRng ) {
+        let age_data = data.age.iter().find(|o| o.age == self.age(year) ).expect(&*format!("age was {}", self.age(year)));
+        let target = Player::new(data, &self.pos, year, rng);
+
+        Self::apply_age_to_expect( &mut self.bat_expect.0, &target.bat_expect.0, age_data, rng );
+        Self::apply_age_to_expect( &mut self.bat_expect.1, &target.bat_expect.1, age_data, rng );
+        Self::apply_age_to_expect( &mut self.pit_expect.0, &target.pit_expect.0, age_data, rng );
+        Self::apply_age_to_expect( &mut self.pit_expect.1, &target.pit_expect.1, age_data, rng );
+
+    }
+
     pub(crate) fn should_retire(&self, year: u32, rng: &mut ThreadRng) -> bool {
         const MIN_AGE: u32 = 30;
         const MAX_AGE: u32 = 45;
-        let age_factor = self.age(year).clamp(MIN_AGE, MAX_AGE) - MIN_AGE;
+        let age = self.age(year);
+        let age_factor = age.clamp(MIN_AGE, MAX_AGE) - MIN_AGE;
         let n = (age_factor * age_factor) as f64;
         let d = ((MAX_AGE - MIN_AGE) * (MAX_AGE - MIN_AGE)) as f64;
         rng.gen_bool(n / d)

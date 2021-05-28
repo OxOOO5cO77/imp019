@@ -37,6 +37,22 @@ impl LocData {
     }
 }
 
+pub(crate) struct AgeData {
+    pub(crate) age: u32,
+    pub(crate) skew: Vec<u32>,
+}
+
+impl AgeData {
+    fn parse( in_str: &'static str) -> Self {
+        let mut parts = in_str.split(',');
+        let result = Self {
+            age: parts.next().unwrap_or("").parse().unwrap_or(0),
+            skew: parts.take(3).map(|o| o.parse().unwrap_or(0)).collect(),
+        };
+        result
+    }
+}
+
 #[derive(Clone, Eq)]
 pub(crate) struct NickData {
     localized: HashMap<&'static str, &'static str>,
@@ -71,6 +87,7 @@ pub(crate) struct Data {
     nick: Vec<NickData>,
     names_first: HashMap<&'static str, Vec<(&'static str, u32)>>,
     names_last: HashMap<&'static str, Vec<(&'static str, u32)>>,
+    pub(crate) age: Vec<AgeData>,
 }
 
 impl Default for Data {
@@ -80,6 +97,7 @@ impl Default for Data {
             nick: Vec::new(),
             names_first: HashMap::new(),
             names_last: HashMap::new(),
+            age: Vec::new(),
         }
     }
 }
@@ -94,7 +112,7 @@ fn weighted(in_str: &'static str) -> Option<(&'static str, u32)> {
 
 impl Data {
     pub(crate) fn new() -> Self {
-        let loc = include_str!("../data/loc.txt").lines().map(|o| LocData::parse(o)).collect();
+        let loc = include_str!("../data/loc.txt").lines().map(LocData::parse).collect();
         let mut nick_raw = include_str!("../data/nick.txt").lines();
         let headers = nick_raw.next().unwrap_or("EN").split(',').collect::<Vec<_>>();
         let nick = nick_raw.map(|o| NickData::parse(o, &headers)).collect();
@@ -108,11 +126,14 @@ impl Data {
         names_last.insert("CA", include_str!("../data/names_ca_last.txt").lines().map(weighted).flatten().collect());
         names_last.insert("MX", include_str!("../data/names_mx_last.txt").lines().map(weighted).flatten().collect());
 
+        let age = include_str!("../data/age.csv").lines().map(AgeData::parse).collect();
+
         Self {
             loc,
             nick,
             names_first,
             names_last,
+            age,
         }
     }
 

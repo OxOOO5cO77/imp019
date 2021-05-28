@@ -168,6 +168,11 @@ pub(crate) fn end_of_season(leagues: &mut Vec<League>, teams: &mut TeamMap, play
         retired += 1;
     }
 
+    // age players
+    for player in players.values_mut().filter(|o| o.active ) {
+        player.apply_age(year, &data, rng);
+    }
+
     generate_players(players, retired, year, &data, rng);
 
     // collect available players
