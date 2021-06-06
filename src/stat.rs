@@ -274,6 +274,58 @@ impl Stats {
             Stat::Fe => self.f_e,
         }
     }
+    pub(crate) fn compile(&mut self, rhs: &Self) {
+        self.g += rhs.g;
+        self.gs += rhs.gs;
+        self.b_1b += rhs.b_1b;
+        self.b_2b += rhs.b_2b;
+        self.b_3b += rhs.b_3b;
+        self.b_hr += rhs.b_hr;
+        self.b_bb += rhs.b_bb;
+        self.b_ibb += rhs.b_ibb;
+        self.b_hbp += rhs.b_hbp;
+        self.b_r += rhs.b_r;
+        self.b_rbi += rhs.b_rbi;
+        self.b_so += rhs.b_so;
+        self.b_o += rhs.b_o;
+        self.b_gidp += rhs.b_gidp;
+        self.b_sb += rhs.b_sb;
+        self.b_cs += rhs.b_cs;
+        self.b_h += rhs.b_h;
+        self.b_ab += rhs.b_ab;
+        self.b_pa += rhs.b_pa;
+        self.b_avg += rhs.b_avg;
+        self.b_obp += rhs.b_obp;
+        self.b_slg += rhs.b_slg;
+        self.p_1b += rhs.p_1b;
+        self.p_2b += rhs.p_2b;
+        self.p_3b += rhs.p_3b;
+        self.p_hr += rhs.p_hr;
+        self.p_bb += rhs.p_bb;
+        self.p_ibb += rhs.p_ibb;
+        self.p_hbp += rhs.p_hbp;
+        self.p_r += rhs.p_r;
+        self.p_er += rhs.p_er;
+        self.p_w += rhs.p_w;
+        self.p_l += rhs.p_l;
+        self.p_sv += rhs.p_sv;
+        self.p_bs += rhs.p_bs;
+        self.p_hld += rhs.p_hld;
+        self.p_cg += rhs.p_cg;
+        self.p_sho += rhs.p_sho;
+        self.p_so += rhs.p_so;
+        self.p_o += rhs.p_o;
+        self.p_h += rhs.p_h;
+        self.p_bf += rhs.p_bf;
+        self.p_avg += rhs.p_avg;
+        self.p_obp += rhs.p_obp;
+        self.p_slg += rhs.p_slg;
+        self.p_era += rhs.p_era;
+        self.p_whip += rhs.p_whip;
+        self.f_po += rhs.f_po;
+        self.f_e += rhs.f_e;
+        self.calculate();
+    }
 
     fn div1000_or_0(n: u32, d: u32) -> u32 {
         if d > 0 { (n * 1000) / d } else { d }
@@ -299,7 +351,7 @@ impl Stats {
         Self::div1000_or_0(3 * (h + bb), o)
     }
 
-    fn calculate(mut self) -> Self {
+    fn calculate(&mut self) {
         self.b_h = self.b_1b + self.b_2b + self.b_3b + self.b_hr;
         self.b_ab = self.b_h + self.b_o;
         self.b_pa = self.b_ab + self.b_bb + self.b_hbp;
@@ -318,8 +370,6 @@ impl Stats {
         self.p_slg = Self::calc_slg1000(p_ab, self.p_1b, self.p_2b, self.p_3b, self.p_hr);
         self.p_era = Self::calc_era1000(self.p_er, self.p_o);
         self.p_whip = Self::calc_whip1000(self.p_h, self.p_bb, self.p_o);
-
-        self
     }
 
     pub(crate) fn compile_stats(stream: &[Stat]) -> Stats {
@@ -389,7 +439,8 @@ impl Stats {
             }
         }
 
-        stats.calculate()
+        stats.calculate();
+        stats
     }
 }
 

@@ -300,9 +300,9 @@ fn display_team_stats(ui: &mut Ui, is_batter: bool, headers: &[Stat], team_playe
     ret
 }
 
-fn display_historical_stat_row(ui: &mut Ui, headers: &[Stat], stats: &Stats, year: u32, league: u32, abbr: &str) {
-    ui.label(format!("{}", year));
-    ui.label(format!("{}", league));
+fn display_historical_stat_row(ui: &mut Ui, headers: &[Stat], stats: &Stats, year: Option<u32>, league: Option<u32>, abbr: &str) {
+    ui.label(year.map_or("CAREER".to_string(), |o| o.to_string()));
+    ui.label(league.map_or(" ".to_string(), |o| o.to_string()));
     ui.label(abbr);
     for header in headers {
         ui.label(header.value(stats.get_stat(*header)));
@@ -310,7 +310,7 @@ fn display_historical_stat_row(ui: &mut Ui, headers: &[Stat], stats: &Stats, yea
     ui.end_row();
 }
 
-fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[HistoricalStats], teams: &TeamMap) {
+fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[HistoricalStats], teams: &TeamMap) -> Stats {
     ui.label("Year");
     ui.label("League");
     ui.label("Team");
@@ -319,11 +319,16 @@ fn display_historical_stats(ui: &mut Ui, headers: &[Stat], historical: &[Histori
     }
     ui.end_row();
 
+    let mut total = Stats::default();
+
     for history in historical {
         let stats = &history.stats;
         let team = teams.get(&history.team).unwrap();
-        display_historical_stat_row(ui, headers, stats, history.year, history.league, team.abbr());
+        display_historical_stat_row(ui, headers, stats, Some(history.year), Some(history.league), team.abbr());
+        total.compile(stats);
     }
+
+    total
 }
 
 fn display_leaders(ui: &mut Ui, is_batter: bool, headers: &[Stat], league: &League, teams: &TeamMap, players: &PlayerMap, mut mode: Mode) -> Mode {
@@ -884,13 +889,23 @@ impl epi::App for Imp019App {
                     ui.heading(if player.pos.is_pitcher() { "Pitching History" } else { "Batting History" });
                     let headers = if player.pos.is_pitcher() { &PITCHING_HEADERS[..] } else { &BATTING_HEADERS[..] };
                     egui::Grid::new("history").striped(true).show(ui, |mut ui| {
-                        display_historical_stats(&mut ui, headers, &player.historical, &self.team_map);
+                        let mut total = display_historical_stats(&mut ui, headers, &player.historical, &self.team_map);
                         let stats = player.get_stats();
+                        let mut teams = HashSet::new();
+
+                        for historical in &player.historical {
+                            teams.insert(historical.team);
+                        }
+
                         if stats.g > 0 {
                             let team = self.team_map.iter().find(|kv| kv.1.players.contains(player_id)).unwrap();
+                            teams.insert(*team.0);
                             let league = self.leagues.iter().position(|o| o.teams.contains(team.0)).unwrap();
-                            display_historical_stat_row(&mut ui, headers, &stats, self.year, (league + 1) as u32, team.1.abbr());
+                            display_historical_stat_row(&mut ui, headers, &stats, Some(self.year), Some((league + 1) as u32), team.1.abbr());
+                            total.compile(&stats);
                         }
+                        let team_count = if teams.len() == 1 { "1 team".to_owned() } else { format!("{} team(s)", teams.len()) };
+                        display_historical_stat_row(&mut ui, headers, &total, None, None, team_count.as_str());
                     });
 
                     mode
