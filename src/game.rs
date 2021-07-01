@@ -249,7 +249,7 @@ impl Game {
 
         let mut index = 0;
         for (id, player) in &team_players {
-            if scoreboard.bo.iter().find(|o| o.pos == player.pos).is_none() {
+            if !scoreboard.bo.iter().any(|o| o.pos == player.pos) {
                 scoreboard.bo[index] = DefenseInfo {
                     player: *id,
                     pos: player.pos,
@@ -284,7 +284,7 @@ impl Game {
         Self::setup_bo(players, teams, &mut self.away, boxscore, year, rng);
     }
 
-    fn get_expected_pa(batter: &HashMap<Expect, f64>, pitcher: &HashMap<Expect, f64>, rng: &mut ThreadRng) -> Expect {
+    fn expected_pa(batter: &HashMap<Expect, f64>, pitcher: &HashMap<Expect, f64>, rng: &mut ThreadRng) -> Expect {
         *batter.iter().map(|kv| {
             let bval = kv.1;
             let pval = pitcher.get(&kv.0).unwrap_or(&0.0);
@@ -531,7 +531,7 @@ impl Game {
             let pitch_avg = (batter.patience + pitcher.control) / 2.0;
             let mut pitches = gen_gamma(rng, pitch_avg, 1.0).round().max(1.0) as u32;
 
-            let expect = Self::get_expected_pa(batter_expect, pitcher_expect, rng);
+            let expect = Self::expected_pa(batter_expect, pitcher_expect, rng);
             let mut result = PaResult::from(expect);
 
             let mut ibb_cond = inning.number > 6;

@@ -7,13 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = "0.12.0"
+eframe = "0.13.1"
 enumflags2 = "0.7.1"
-getrandom = { version = "0.2.2", features = ["js"] }
+getrandom = { version = "0.2.3", features = ["js"] }
 ordinal = "0.2.3"
-rand = "0.8.3"
-rand_distr = "0.4.0"
-serde = { version = "1.0.125", features = ["derive"], optional = true }
+rand = "0.8.4"
+rand_distr = "0.4.1"
+serde = { version = "1.0.126", features = ["derive"], optional = true }
 lazy_static = "1.4.0"
 enum-iterator = "0.6.0"
 
