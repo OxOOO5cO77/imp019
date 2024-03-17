@@ -1,7 +1,6 @@
 use std::cmp::{max, min};
 use std::collections::HashMap;
-
-use enum_iterator::IntoEnumIterator;
+use enum_iterator::all;
 
 use crate::player::{Player, PlayerId, PlayerMap, PlayerRefMap, Position};
 use crate::data::{LocData, NickData};
@@ -159,7 +158,7 @@ impl Team {
     }
 
     pub(crate) fn populate(&mut self, available: &mut PlayerRefMap<'_>, players: &PlayerMap) {
-        for pos in Position::into_enum_iter() {
+        for pos in all::<Position>() {
             let max = Self::players_per_position(pos);
             let exact_position = |o: &&Player| o.pos == pos;
             self.fill_in(available, players, max, &exact_position);

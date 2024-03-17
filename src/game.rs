@@ -287,8 +287,8 @@ impl Game {
     fn expected_pa(batter: &HashMap<Expect, f64>, pitcher: &HashMap<Expect, f64>, rng: &mut ThreadRng) -> Expect {
         *batter.iter().map(|kv| {
             let bval = kv.1;
-            let pval = pitcher.get(&kv.0).unwrap_or(&0.0);
-            let lval = LEAGUE_AVG.get(&kv.0).unwrap_or(&0.0);
+            let pval = pitcher.get(kv.0).unwrap_or(&0.0);
+            let lval = LEAGUE_AVG.get(kv.0).unwrap_or(&0.0);
             let res = (Self::matchup_morey_z(*bval, *pval, *lval) * 1000.0) as u32;
             (kv.0, res)
         }).collect::<Vec<_>>().choose_weighted(rng, |o| o.1).unwrap().0
@@ -678,7 +678,7 @@ impl Game {
 
             bat_scoreboard.ab = (bat_scoreboard.ab + 1) % 9;
 
-            let mut pit_scoreboard = self.pitching(&inning);
+            let pit_scoreboard = self.pitching(&inning);
             pit_scoreboard.pitches += pitches;
             pit_scoreboard.pitcher_outs += new_outs;
 

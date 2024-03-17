@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 
-use enum_iterator::IntoEnumIterator;
+use enum_iterator::{all, Sequence};
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 
-use crate::data::{Data, AgeData};
+use crate::data::{AgeData, Data};
 use crate::stat::{HistoricalStats, Stat, Stats};
 use crate::team::TeamId;
 use crate::util::{gen_gamma, gen_normal};
@@ -16,7 +16,7 @@ pub(crate) type PlayerId = u64;
 pub(crate) type PlayerMap = HashMap<PlayerId, Player>;
 pub(crate) type PlayerRefMap<'a> = HashMap<PlayerId, &'a Player>;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, IntoEnumIterator)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Sequence)]
 pub(crate) enum Position {
     StartingPitcher,
     Catcher,
@@ -133,7 +133,7 @@ pub(crate) struct Player {
     pub(crate) fatigue: u16,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, IntoEnumIterator)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Sequence)]
 pub(crate) enum Expect {
     Single,
     Double,
@@ -490,7 +490,7 @@ impl Player {
     }
 
     fn apply_age_to_expect(expect_self: &mut ExpectMap, expect_other: &ExpectMap, age_data: &AgeData, rng: &mut ThreadRng) {
-        for expect in Expect::into_enum_iter() {
+        for expect in all::<Expect>() {
             expect_self.insert(expect, Self::apply_age_to_value(expect_self[&expect], expect_other[&expect], age_data, rng ));
         }
     }

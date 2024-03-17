@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use eframe::{egui, epi};
+use eframe::{App, egui, Frame};
 use eframe::egui::{Button, ScrollArea, Ui};
 use ordinal::Ordinal;
 use rand::rngs::ThreadRng;
@@ -25,7 +25,7 @@ enum Mode {
     LeagueRecords(usize),
 }
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
+/// We derive Deserialize/Serialize, so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct Imp019App {
     rng: ThreadRng,
@@ -54,7 +54,7 @@ impl Default for Imp019App {
 }
 
 impl Imp019App {
-    pub fn new() -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let mut rng = rand::thread_rng();
         let data = Data::new();
         let year = 2049;
@@ -450,10 +450,10 @@ const PITCHING_HEADERS: [Stat; 25] = [
 ];
 
 
-impl epi::App for Imp019App {
+impl App for Imp019App {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -463,9 +463,9 @@ impl epi::App for Imp019App {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
-                egui::menu::menu(ui, "File", |ui| {
+                egui::menu::menu_button(ui, "File", |ui| {
                     if ui.button("Quit").clicked() {
-                        frame.quit();
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
                 ui.separator();
@@ -527,13 +527,13 @@ impl epi::App for Imp019App {
                     let end = start + half_teams;
 
                     ui.horizontal_wrapped(|ui| {
-                        if ui.add(egui::Button::new("< Prev").enabled(cur > 0)).clicked() {
+                        if ui.add_enabled(cur > 0, Button::new("< Prev")).clicked() {
                             mode = Mode::Schedule(*disp_league, Some(cur - 1));
                         }
                         if ui.button("Today").clicked() {
                             mode = Mode::Schedule(*disp_league, None);
                         }
-                        if ui.add(egui::Button::new("Next >").enabled(end <= total_games)).clicked() {
+                        if ui.add_enabled(end <= total_games, Button::new("Next >")).clicked() {
                             mode = Mode::Schedule(*disp_league, Some(cur + 1));
                         }
                     });
@@ -545,9 +545,9 @@ impl epi::App for Imp019App {
                         ui.horizontal_wrapped(|ui| {
                             if end <= total_games {
                                 for idx in start..end {
-                                    let game = &league.schedule.games[idx as usize];
+                                    let game = &league.schedule.games[idx];
                                     if display_game(ui, game, &self.team_map) {
-                                        mode = Mode::BoxScore(*disp_league, idx as usize)
+                                        mode = Mode::BoxScore(*disp_league, idx)
                                     }
                                     if ((idx - start + 1) % 5) == 0 {
                                         ui.end_row();
@@ -712,7 +712,7 @@ impl epi::App for Imp019App {
                         mode = Mode::BoxScore(*disp_league, *game_idx);
                     }
 
-                    ScrollArea::auto_sized().show(ui, |ui| {
+                    ScrollArea::both().show(ui, |ui| {
                         let mut prevhalf = false;
                         let mut previnn = 0;
 
@@ -848,14 +848,14 @@ impl epi::App for Imp019App {
                             ui.vertical(|ui| {
                                 ui.heading("Batting");
 
-                                egui::Grid::new("batting").striped(true).show(ui, |mut ui| {
-                                    if let Some(player_id) = display_team_stats(&mut ui, true, &BATTING_HEADERS, &team.players, &self.player_map) {
+                                egui::Grid::new("batting").striped(true).show(ui, |ui| {
+                                    if let Some(player_id) = display_team_stats(ui, true, &BATTING_HEADERS, &team.players, &self.player_map) {
                                         mode = Mode::Player(*disp_league, player_id, Some(*id));
                                     }
                                 });
                                 ui.heading("Pitching");
-                                egui::Grid::new("pitching").striped(true).show(ui, |mut ui| {
-                                    if let Some(player_id) = display_team_stats(&mut ui, false, &PITCHING_HEADERS, &team.players, &self.player_map) {
+                                egui::Grid::new("pitching").striped(true).show(ui, |ui| {
+                                    if let Some(player_id) = display_team_stats(ui, false, &PITCHING_HEADERS, &team.players, &self.player_map) {
                                         mode = Mode::Player(*disp_league, player_id, Some(*id));
                                     }
                                 });
@@ -888,8 +888,8 @@ impl epi::App for Imp019App {
 
                     ui.heading(if player.pos.is_pitcher() { "Pitching History" } else { "Batting History" });
                     let headers = if player.pos.is_pitcher() { &PITCHING_HEADERS[..] } else { &BATTING_HEADERS[..] };
-                    egui::Grid::new("history").striped(true).show(ui, |mut ui| {
-                        let mut total = display_historical_stats(&mut ui, headers, &player.historical, &self.team_map);
+                    egui::Grid::new("history").striped(true).show(ui, |ui| {
+                        let mut total = display_historical_stats(ui, headers, &player.historical, &self.team_map);
                         let stats = player.get_stats();
                         let mut teams = HashSet::new();
 
@@ -901,11 +901,11 @@ impl epi::App for Imp019App {
                             let team = self.team_map.iter().find(|kv| kv.1.players.contains(player_id)).unwrap();
                             teams.insert(*team.0);
                             let league = self.leagues.iter().position(|o| o.teams.contains(team.0)).unwrap();
-                            display_historical_stat_row(&mut ui, headers, &stats, Some(self.year), Some((league + 1) as u32), team.1.abbr());
+                            display_historical_stat_row(ui, headers, &stats, Some(self.year), Some((league + 1) as u32), team.1.abbr());
                             total.compile(&stats);
                         }
                         let team_count = if teams.len() == 1 { "1 team".to_owned() } else { format!("{} team(s)", teams.len()) };
-                        display_historical_stat_row(&mut ui, headers, &total, None, None, team_count.as_str());
+                        display_historical_stat_row(ui, headers, &total, None, None, team_count.as_str());
                     });
 
                     mode
@@ -914,7 +914,7 @@ impl epi::App for Imp019App {
                     let league = &self.leagues[*disp_league];
                     let mut mode = Mode::BatLeaders(*disp_league, *result, *reverse);
 
-                    ScrollArea::auto_sized().show(ui, |ui| {
+                    ScrollArea::both().show(ui, |ui| {
                         egui::Grid::new("bleaders").striped(true).show(ui, |ui| {
                             mode = display_leaders(ui, true, &BATTING_HEADERS, league, &self.team_map, &self.player_map, mode);
                         });
@@ -926,7 +926,7 @@ impl epi::App for Imp019App {
                     let league = &self.leagues[*disp_league];
                     let mut mode = Mode::PitLeaders(*disp_league, *result, *reverse);
 
-                    ScrollArea::auto_sized().show(ui, |ui| {
+                    ScrollArea::both().show(ui, |ui| {
                         egui::Grid::new("pleaders").striped(true).show(ui, |ui| {
                             mode = display_leaders(ui, false, &PITCHING_HEADERS, league, &self.team_map, &self.player_map, mode);
                         });
@@ -993,17 +993,12 @@ impl epi::App for Imp019App {
         *self = epi::get_value(storage, epi::APP_KEY).unwrap()
     }
 
-    /// Called by the frame work to save state before shutdown.
+    /// Called by the framework to save state before shutdown.
     #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn epi::Storage) {
         epi::set_value(storage, epi::APP_KEY, self);
     }
-
-    fn name(&self) -> &str {
-        "imp019"
-    }
-
-    fn max_size_points(&self) -> egui::Vec2 {
-        egui::Vec2::new(2048.0, 1024.0)
-    }
+    //fn name(&self) -> &str { "imp019" }
+    //fn max_size_points(&self) -> egui::Vec2 { egui::Vec2::new(2048.0, 1024.0) }
 }
+
